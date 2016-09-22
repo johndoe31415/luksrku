@@ -92,9 +92,12 @@ can do:
 	# Host UUID								Host PSK															Disk UUIDs
 	d66f96fc-7056-46e1-aea6-0f3d705cd3bc	d94f3fc6c3507123bda4034dd8c865a1b4cf9870bda50e9ed9f861621d581017	952ebed9-5256-4b4c-9de5-7f8829b4a74a=54444656365a3658794451353241537377564653456c386d7256666e4839463562
 	```
-  4. The config script has given suggestions for server.txt and client.txt. We
+	We follow the suggested passphrase, which should contain 192 bits of entropy.
+  4. We use cryptsetup luksAddKey to add the suggested passphrase to the LUKS
+	 keyring of the server.
+  6. The config script has given suggestions for server.txt and client.txt. We
 	 copy the respective contents into the files.
-  5. Then we create the server binary config:
+  6. Then we create the server binary config:
 	```
 	$ luksrku-config server server.txt server.bin
 	Successfully read key file with 1 entries.
@@ -103,20 +106,20 @@ can do:
 	Passphrase to encrypt keyfile: 	
 	```
 	Now we'll have a server.bin and password-protected client.bin.
-  6. On the server machine (i.e., the one with the LUKS disk) we copy
+  7. On the server machine (i.e., the one with the LUKS disk) we copy
 	 server.bin to /etc/luksrku-server.bin.
-  7. On the server, we modify the luksrku-script in the initramfs/ subdirectory
+  8. On the server, we modify the luksrku-script in the initramfs/ subdirectory
 	 to fit the NIC of the server and the IP address we want (this is really
      ugly at the moment and needs to be fixed ASAP, but it is what it is now).
-  8. On the server, then run the "./install" script as root which will install
+  9. On the server, then run the "./install" script as root which will install
 	 initramfs hooks.
-  9. On the server, update the initramfs (update-initramfs -u). Previously make
+  10. On the server, update the initramfs (update-initramfs -u). Previously make
 	 a copy of your initramfs so that you can boot your system in case things
      go wrong (which they will, trust me).
-  10. Boot the server. If everything went fine (it won't at the first run), it
+  11. Boot the server. If everything went fine (it won't at the first run), it
 	  will now broadcast UDP packets onto the network indicating its presence.
       These packets will be sent to UDP port 23170.
-  11. On the client, start the client to unlock the server's key:
+  12. On the client, start the client to unlock the server's key:
 	```
 	$ luksrku --client-mode -k client.bin 
 	Keyfile password: 	
