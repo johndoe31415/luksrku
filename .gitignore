@@ -1,4 +1,6 @@
 .*.swp
 *.o
+luksrku
+luksrku-config
 openssl-1.1.0.tar.gz
 openssl-1.1.0
