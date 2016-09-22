@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# Initramfs-tools hook script for remote LUKS unlocking
+#
+# Copyright 2016 Johannes Bauer <joe@johannes-bauer.com>
+# Released under GPLv3
+
+PREREQ=""
+
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+	prereqs)
+		prereqs
+		exit 0
+		;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+cp /etc/luksrku-server.bin ${DESTDIR}/etc/
+copy_exec /usr/local/sbin/luksrku /sbin

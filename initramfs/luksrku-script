@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# Copyright 2016 Johannes Bauer <joe@johannes-bauer.com>
+# Released under GPLv3
+
+PREREQ="lvm2"
+
+#
+# Standard initramfs preamble
+#
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+	prereqs)
+		prereqs
+		exit 0
+		;;
+esac
+
+ETH_DEV="eno1"
+/bin/ifconfig $ETH_DEV up 192.168.1.29 netmask 255.255.255.0
+/bin/ip route add default dev $ETH_DEV
+#/sbin/luksrku --server-mode -v -k /etc/luksrku-server.bin
+/bin/sh
+
+exit 0

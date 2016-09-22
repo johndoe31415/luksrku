@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+#
+
+install() {
+	SRC="$1"
+	DST="$2"
+	cp "$SRC" "$DST"
+	chown root:root "$DST"
+	chmod 755 "$DST"
+}
+	
+install luksrku-script /usr/share/initramfs-tools/scripts/local-top/luksrku
+install luksrku-hook /usr/share/initramfs-tools/hooks/luksrku
