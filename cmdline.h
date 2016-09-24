@@ -37,6 +37,7 @@ struct options_t {
 	int port;
 	bool verbose;
 	const char *keydbfile;
+	int unlock_cnt;
 };
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/

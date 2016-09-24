@@ -207,8 +207,9 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 		return false;
 	}
 
-	log_msg(LLVL_DEBUG, "Created listening socket on port %d", options->port);	
-	while (true) {
+	log_msg(LLVL_DEBUG, "Created listening socket on port %d", options->port);
+	int tries = 0;
+	while ((options->unlock_cnt == 0) || (tries < options->unlock_cnt)) {
 		struct sockaddr_in addr;
 		unsigned int len = sizeof(addr);
 
@@ -229,13 +230,13 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 			return false;
 		}
 
-
 		SSL *ssl = SSL_new(gctx.ctx);
 		SSL_set_fd(ssl, client);
 
 		if (SSL_accept(ssl) <= 0) {
 			ERR_print_errors_fp(stderr);
 		} else {
+			tries++;
 			log_msg(LLVL_DEBUG, "Client connected, waiting for data...");
 			while (true) {
 				struct msg_t msg;

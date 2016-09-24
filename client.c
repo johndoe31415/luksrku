@@ -37,6 +37,7 @@
 #include "cmdline.h"
 #include "msg.h"
 #include "client.h"
+#include "blacklist.h"
 
 static const struct keydb_t *client_keydb;
 
@@ -144,6 +145,18 @@ static bool parse_announcement(const struct options_t *options, const struct soc
 		return false;
 	}
 
+	/* We know the server. But maybe we've already tried to contact them and
+	 * therefore they're blacklisted for a certain period of time. Check this
+	 * now (we don't want to spam servers with maybe invalid passphrases). */
+	uint32_t ip = peer_addr->sin_addr.s_addr;
+	if (is_ip_blacklisted(ip)) {
+		log_msg(LLVL_DEBUG, "%d.%d.%d.%d is currently blacklisted for %d seconds.", PRINTF_FORMAT_IP(peer_addr), BLACKLIST_ENTRY_TIMEOUT_SECS);
+		return false;
+	} else {
+		/* Blacklist for next time */
+		blacklist_ip(ip);
+	}
+
 	char destination_address[32];
 	snprintf(destination_address, sizeof(destination_address) - 1, "%d.%d.%d.%d:%d", PRINTF_FORMAT_IP(peer_addr), options->port);
 	log_msg(LLVL_DEBUG, "Trying to connect to %s in order to transmit keys", destination_address);
@@ -177,14 +190,15 @@ bool dtls_client(const struct keydb_t *keydb, const struct options_t *options) {
 		return false;
 	}
 
-	while (true) {
+	int tries = 0;
+	while ((options->unlock_cnt == 0) || (tries < options->unlock_cnt)) {
 		uint8_t rxbuf[2048];
 		struct sockaddr_in peer_addr;
 		socklen_t addr_size = sizeof(peer_addr);
 		int rxlen = recvfrom(sd, rxbuf, sizeof(rxbuf), 0, (struct sockaddr *)&peer_addr, &addr_size);
 		if (rxlen == sizeof(struct announcement_t)) {
 			if (parse_announcement(options, &peer_addr, (struct announcement_t*)rxbuf)) {
-				break;
+				tries++;
 			}
 		}
 	}
