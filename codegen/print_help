@@ -1,0 +1,91 @@
+#!/usr/bin/python3
+import textwrap
+
+class HelpPagePrinter(object):
+	def __init__(self):
+		self._entries = [ ]
+		self._lcolsize = None
+
+	def add(self, lhs, rhs):
+		if isinstance(lhs, str):
+			lhs = (lhs, )
+		else:
+			lhs = (", ".join(lhs), )
+		if isinstance(rhs, str):
+			rhs = (rhs, )
+		self._entries.append((lhs, rhs))
+
+	def _format_entry(self, entry):
+		(lhs, rhs) = entry
+		lhs = list(lhs)
+		rhs = list(rhs)
+		
+		right_lines = [ ]
+		for block in rhs:
+			right_lines += textwrap.wrap(block, width = 86 - self._lcolsize)
+		
+		if len(lhs) < len(right_lines):
+			lhs += [ "" ] * (len(right_lines) - len(lhs))
+		elif len(lhs) > len(right_lines):
+			right_lines += [ "" ] * (len(lhs) - len(right_lines))
+		for (left, right) in zip(lhs, right_lines):
+			yield "%-*s %s" % (self._lcolsize, left, right.replace("\xa0", " "))
+		
+	def _determine_lcolsize(self):
+		self._lcolsize = 0
+		for (lhs, rhs) in self._entries:
+			for line in lhs:
+				self._lcolsize = max(self._lcolsize, len(line))
+
+	def format_params(self):
+		lines = [ "" ]
+		for (lhs, rhs) in self._entries:
+			par = lhs[0].strip()
+			
+			newline = lines[-1] + (" (%s)" % (par))
+			if len(newline) < 80:
+				lines[-1] = newline
+			else:
+				lines.append("(%s)" % (par))
+		yield from lines
+		
+
+	def format_help(self):
+		self._determine_lcolsize()
+		for entry in self._entries:
+			yield from self._format_entry(entry)
+
+hpp = HelpPagePrinter()
+hpp.add([ "-c", "--client-mode" ], "Specifies client mode, i.e., that this host will unlock the LUKS disk of a different machine.")
+hpp.add([ "-s", "--server-mode" ], "Specifies server mode, i.e., that this host will announce its presence via UDP broadcasts and then receive the LUKS credentials from a peer.")
+hpp.add([ "-k", "--keydb=FILE" ], "Gives the binary key database file which will be used. In server mode, this contains only one entry (specifying the UUID of the host, the PSK and the UUIDs and names of the disks to be unlocked), while in client mode this may contain multiple entries (to unlock many different peers) and also contains the LUKS credentials for the respective disks.")
+hpp.add([ "-p", "--port=PORT" ], "Specifies the port on which is listened for UDP broadcasts and also the port on which TCP requests are sent out (the two are always identical).")
+hpp.add([ "-v", "--verbose" ], "Increase logging verbosity.")
+for (index, line) in enumerate(hpp.format_params()):
+	if index == 0:
+		print("fprintf(stderr, \"%%s%s\\n\", argv[0]);" % (line))
+	else:
+		print("fprintf(stderr, \"    %s\\n\");" % (line))
+print("fprintf(stderr, \"\\n\");")
+for line in hpp.format_help():
+	print("fprintf(stderr, \"  %s\\n\");" % (line))
+print("fprintf(stderr, \"\\n\");")
+
+
+#examples = [
+#	("--client-mode ", 
+#		"Converts {device} to a LUKS partition with default parameters."),
+#	("-d {device} --resume-file myresume.dat", 
+#		"Converts {device} to a LUKS partition with default parameters and store resume information in myresume.dat in case of an abort."),
+#	("-d {device} -k /root/secure_key/keyfile.bin --luksparams='-c,twofish-lrw-benbi,-s,320,-h,sha256'",
+#		"Converts {device} to a LUKS partition and stores the initially used keyfile in /root/secure_key/keyfile.bin. Additionally some LUKS parameters are passed that specify that the Twofish cipher should be used with a 320 bit keysize and SHA-256 as a hash function."),
+#	("-d {device} --resume --resume-file /root/resume.bin", 
+#		"Resumes a crashed LUKS conversion of {device} using the file /root/resume.bin which was generated at the first (crashed) luksipc run."),
+#	("-d {device} --readdev /dev/mapper/oldluks", 
+#		"Convert the raw device {device}, which is already a LUKS container, to a new LUKS container. For example, this can be used to change the encryption parameters of the LUKS container (different cipher) or to change the bulk encryption key. In this example the old container is unlocked and accessible under /dev/mapper/oldluks."),
+#]
+#print("fprintf(stderr, \"Examples:\\n\");")
+#for (cmd, desc) in examples:
+#	print("fprintf(stderr, \"    %%s %s\\n\", argv[0]);" % (cmd.replace("{device}", device)))
+#	for line in textwrap.wrap(desc.replace("{device}", device), width = 80):
+#		print("fprintf(stderr, \"       %s\\n\");" % (line))

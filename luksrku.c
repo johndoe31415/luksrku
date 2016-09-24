@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 
 	struct options_t options;
 	if (!parse_cmdline_arguments(&options, argc, argv)) {
-		print_syntax();
+		print_syntax(argv[0]);
 		exit(EXIT_FAILURE);
 	}
 	if (options.verbose) {

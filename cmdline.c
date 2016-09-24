@@ -36,8 +36,26 @@ enum longopts_t {
 	LONGOPT_KEYDB
 };
 
-void print_syntax(void) {
-	fprintf(stderr, "Help page here\n");
+void print_syntax(const char *pgmname) {
+	fprintf(stderr, "%s (-c, --client-mode) (-s, --server-mode) (-k, --keydb=FILE) (-p, --port=PORT)\n", pgmname);
+	fprintf(stderr, "    (-v, --verbose)\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "  -c, --client-mode Specifies client mode, i.e., that this host will unlock the LUKS disk\n");
+	fprintf(stderr, "                    of a different machine.\n");
+	fprintf(stderr, "  -s, --server-mode Specifies server mode, i.e., that this host will announce its\n");
+	fprintf(stderr, "                    presence via UDP broadcasts and then receive the LUKS credentials\n");
+	fprintf(stderr, "                    from a peer.\n");
+	fprintf(stderr, "  -k, --keydb=FILE  Gives the binary key database file which will be used. In server\n");
+	fprintf(stderr, "                    mode, this contains only one entry (specifying the UUID of the host,\n");
+	fprintf(stderr, "                    the PSK and the UUIDs and names of the disks to be unlocked), while\n");
+	fprintf(stderr, "                    in client mode this may contain multiple entries (to unlock many\n");
+	fprintf(stderr, "                    different peers) and also contains the LUKS credentials for the\n");
+	fprintf(stderr, "                    respective disks.\n");
+	fprintf(stderr, "  -p, --port=PORT   Specifies the port on which is listened for UDP broadcasts and also\n");
+	fprintf(stderr, "                    the port on which TCP requests are sent out (the two are always\n");
+	fprintf(stderr, "                    identical).\n");
+	fprintf(stderr, "  -v, --verbose     Increase logging verbosity.\n");
+	fprintf(stderr, "\n");
 }
 
 static void set_default_arguments(struct options_t *options) {

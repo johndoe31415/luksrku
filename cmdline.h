@@ -40,7 +40,8 @@ struct options_t {
 };
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-void print_syntax(void);
+enum longopts_t;
+void print_syntax(const char *pgmname);
 bool parse_cmdline_arguments(struct options_t *options, int argc, char **argv);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
