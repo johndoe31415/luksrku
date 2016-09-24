@@ -21,5 +21,8 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
+if [ ! -f /etc/luksrku-server.bin ]; then
+	exit 0
+fi
 cp /etc/luksrku-server.bin ${DESTDIR}/etc/
 copy_exec /usr/local/sbin/luksrku /sbin

@@ -21,9 +21,11 @@ case $1 in
 esac
 
 ETH_DEV="eno1"
-/bin/ifconfig $ETH_DEV up 192.168.1.29 netmask 255.255.255.0
-/bin/ip route add default dev $ETH_DEV
-#/sbin/luksrku --server-mode -v -k /etc/luksrku-server.bin
-/bin/sh
+ETH_IP="192.168.1.29"
+ETH_NETMASK="255.255.255.0"
+
+/bin/ifconfig "$ETH_DEV" up "$ETH_IP" netmask "$ETH_NETMASK"
+/bin/ip route add default dev "$ETH_DEV"
+/sbin/luksrku --server-mode -v -k /etc/luksrku-server.bin
 
 exit 0
