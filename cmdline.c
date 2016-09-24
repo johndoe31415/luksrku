@@ -27,6 +27,7 @@
 #include <stdlib.h>
 
 #include "cmdline.h"
+#include "global.h"
 
 enum longopts_t {
 	LONGOPT_VERBOSE,
@@ -66,6 +67,7 @@ void print_syntax(const char *pgmname) {
 	fprintf(stderr, "                       manual key entry. This defaults to 5 tries.\n");
 	fprintf(stderr, "  -v, --verbose        Increase logging verbosity.\n");
 	fprintf(stderr, "\n");
+	fprintf(stderr, "luksrku version: " LUKSRKU_VERSION "\n");
 }
 
 static void set_default_arguments(struct options_t *options) {
