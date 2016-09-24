@@ -99,7 +99,7 @@ can do:
      keyring of the server.
   5. The config script has given suggestions for server.txt and client.txt. We
      copy the respective contents into the files.
-  6. Then we create the server binary config:
+  6. Then we create the client and server binary configuration files:
 
     ```bash
     $ luksrku-config server server.txt server.bin
