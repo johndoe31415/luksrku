@@ -65,13 +65,13 @@ hpp.add([ "--max-bcast-errs=CNT" ], "This is the number of UDP broadcast attempt
 hpp.add([ "-v", "--verbose" ], "Increase logging verbosity.")
 for (index, line) in enumerate(hpp.format_params()):
 	if index == 0:
-		print("fprintf(stderr, \"%%s%s\\n\", pgmname);" % (line))
+		print("	fprintf(stderr, \"%%s%s\\n\", pgmname);" % (line))
 	else:
-		print("fprintf(stderr, \"    %s\\n\");" % (line))
-print("fprintf(stderr, \"\\n\");")
+		print("	fprintf(stderr, \"    %s\\n\");" % (line))
+print("	fprintf(stderr, \"\\n\");")
 for line in hpp.format_help():
-	print("fprintf(stderr, \"  %s\\n\");" % (line))
-print("fprintf(stderr, \"\\n\");")
+	print("	fprintf(stderr, \"  %s\\n\");" % (line))
+print("	fprintf(stderr, \"\\n\");")
 
 
 #examples = [

@@ -2,5 +2,10 @@
 *.o
 luksrku
 luksrku-config
-openssl-1.1.0.tar.gz
-openssl-1.1.0
+openssl-1.1.0a.tar.gz
+openssl-1.1.0a
+
+client.bin
+client.txt
+server.bin
+server.txt
