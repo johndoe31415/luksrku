@@ -209,12 +209,19 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 
 	log_msg(LLVL_DEBUG, "Created listening socket on port %d", options->port);
 	int tries = 0;
+	int failed_broadcast_cnt = 0;
 	while ((options->unlock_cnt == 0) || (tries < options->unlock_cnt)) {
 		struct sockaddr_in addr;
 		unsigned int len = sizeof(addr);
 
 		log_msg(LLVL_DEBUG, "Waiting for incoming connection...");
-		announce_waiting_message(udp_sock, options->port, key);
+		if (!announce_waiting_message(udp_sock, options->port, key)) {
+			failed_broadcast_cnt++;
+			if ((options->max_broadcast_errs != 0) && (failed_broadcast_cnt >= options->max_broadcast_errs)) {
+				log_msg(LLVL_ERROR, "Too many broadcast errors, aborting. Network unavailable?");
+				break;
+			}
+		}
 		if (!socket_wait_acceptable(tcp_sock, WAITING_MESSAGE_BROADCAST_INTERVAL_MILLISECONDS)) {
 			/* No connection pending, timeout. */
 			continue;

@@ -34,32 +34,37 @@ enum longopts_t {
 	LONGOPT_MODE_CLIENT,
 	LONGOPT_PORT,
 	LONGOPT_KEYDB,
-	LONGOPT_UNLOCK_CNT
+	LONGOPT_UNLOCK_CNT,
+	LONGOPT_MAX_BCAST_ERRS
 };
 
 void print_syntax(const char *pgmname) {
 	fprintf(stderr, "%s (-c, --client-mode) (-s, --server-mode) (-k, --keydb=FILE) (-u, --unlock=CNT)\n", pgmname);
-	fprintf(stderr, "    (-p, --port=PORT) (-v, --verbose)\n");
+	fprintf(stderr, "    (-p, --port=PORT) (--max-bcast-errs=CNT) (-v, --verbose)\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "  -c, --client-mode Specifies client mode, i.e., that this host will unlock the LUKS disk\n");
-	fprintf(stderr, "                    of a different machine.\n");
-	fprintf(stderr, "  -s, --server-mode Specifies server mode, i.e., that this host will announce its\n");
-	fprintf(stderr, "                    presence via UDP broadcasts and then receive the LUKS credentials\n");
-	fprintf(stderr, "                    from a peer.\n");
-	fprintf(stderr, "  -k, --keydb=FILE  Gives the binary key database file which will be used. In server\n");
-	fprintf(stderr, "                    mode, this contains only one entry (specifying the UUID of the host,\n");
-	fprintf(stderr, "                    the PSK and the UUIDs and names of the disks to be unlocked), while\n");
-	fprintf(stderr, "                    in client mode this may contain multiple entries (to unlock many\n");
-	fprintf(stderr, "                    different peers) and also contains the LUKS credentials for the\n");
-	fprintf(stderr, "                    respective disks.\n");
-	fprintf(stderr, "  -u, --unlock=CNT  Specifies the maximum number of unlocking actions that are taken. In\n");
-	fprintf(stderr, "                    client mode, this defaults to 1. In server mode, it defaults to\n");
-	fprintf(stderr, "                    infinite (or until all disks have successfully been unlocked). Zero\n");
-	fprintf(stderr, "                    means infinite.\n");
-	fprintf(stderr, "  -p, --port=PORT   Specifies the port on which is listened for UDP broadcasts and also\n");
-	fprintf(stderr, "                    the port on which TCP requests are sent out (the two are always\n");
-	fprintf(stderr, "                    identical). Default port ist 23170.\n");
-	fprintf(stderr, "  -v, --verbose     Increase logging verbosity.\n");
+	fprintf(stderr, "  -c, --client-mode    Specifies client mode, i.e., that this host will unlock the LUKS\n");
+	fprintf(stderr, "                       disk of a different machine.\n");
+	fprintf(stderr, "  -s, --server-mode    Specifies server mode, i.e., that this host will announce its\n");
+	fprintf(stderr, "                       presence via UDP broadcasts and then receive the LUKS credentials\n");
+	fprintf(stderr, "                       from a peer.\n");
+	fprintf(stderr, "  -k, --keydb=FILE     Gives the binary key database file which will be used. In server\n");
+	fprintf(stderr, "                       mode, this contains only one entry (specifying the UUID of the\n");
+	fprintf(stderr, "                       host, the PSK and the UUIDs and names of the disks to be\n");
+	fprintf(stderr, "                       unlocked), while in client mode this may contain multiple entries\n");
+	fprintf(stderr, "                       (to unlock many different peers) and also contains the LUKS\n");
+	fprintf(stderr, "                       credentials for the respective disks.\n");
+	fprintf(stderr, "  -u, --unlock=CNT     Specifies the maximum number of unlocking actions that are taken.\n");
+	fprintf(stderr, "                       In client mode, this defaults to 1. In server mode, it defaults to\n");
+	fprintf(stderr, "                       infinite (or until all disks have successfully been unlocked).\n");
+	fprintf(stderr, "                       Zero means infinite.\n");
+	fprintf(stderr, "  -p, --port=PORT      Specifies the port on which is listened for UDP broadcasts and\n");
+	fprintf(stderr, "                       also the port on which TCP requests are sent out (the two are\n");
+	fprintf(stderr, "                       always identical). Default port ist 23170.\n");
+	fprintf(stderr, "  --max-bcast-errs=CNT This is the number of UDP broadcast attempts luksrku will make\n");
+	fprintf(stderr, "                       before giving up. Usually this is because sendto(2) fails when the\n");
+	fprintf(stderr, "                       network is configured improperly. Giving up in this case enables\n");
+	fprintf(stderr, "                       manual key entry. This defaults to 5 tries.\n");
+	fprintf(stderr, "  -v, --verbose        Increase logging verbosity.\n");
 	fprintf(stderr, "\n");
 }
 
@@ -71,6 +76,9 @@ static void set_default_arguments(struct options_t *options) {
 
 	/* Default, overwritten later by fill_default_arguments() */
 	options->unlock_cnt = -1;
+
+	/* Give up after 5 failed broadcast attempts */
+	options->max_broadcast_errs = 5;
 }
 
 static void fill_default_arguments(struct options_t *options) {
@@ -117,6 +125,7 @@ bool parse_cmdline_arguments(struct options_t *options, int argc, char **argv) {
 		{ "port",			required_argument,	0, LONGOPT_PORT },
 		{ "keydb",			required_argument,	0, LONGOPT_KEYDB },
 		{ "unlock",			required_argument,  0, LONGOPT_UNLOCK_CNT },
+		{ "max-bcast-errs",	required_argument,  0, LONGOPT_MAX_BCAST_ERRS },
 		{ 0 }
 	};
 
@@ -153,6 +162,10 @@ bool parse_cmdline_arguments(struct options_t *options, int argc, char **argv) {
 			case LONGOPT_UNLOCK_CNT:
 			case 'u':
 				options->unlock_cnt = atoi(optarg);
+				break;
+	
+			case LONGOPT_MAX_BCAST_ERRS:
+				options->max_broadcast_errs = atoi(optarg);
 				break;
 
 			case -1:

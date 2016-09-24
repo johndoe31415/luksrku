@@ -38,6 +38,7 @@ struct options_t {
 	bool verbose;
 	const char *keydbfile;
 	int unlock_cnt;
+	int max_broadcast_errs;
 };
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
