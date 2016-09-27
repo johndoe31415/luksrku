@@ -2,7 +2,7 @@
 all: luksrku luksrku-config
 
 INSTALL_PREFIX := /usr/local/
-OPENSSL_DIR := `pwd`/openssl-1.1.0a/
+OPENSSL_DIR := `pwd`/openssl-1.1.0b/
 #OPENSSL_DIR := /home/joe/openssl/
 #LIBDIR := /usr/lib/x86_64-linux-gnu/
 LIBDIR := $(OPENSSL_DIR)
