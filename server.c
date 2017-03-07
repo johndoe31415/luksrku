@@ -181,8 +181,8 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 		return true;
 	}
 
-	struct generic_ssl_ctx_t gctx;
-	create_generic_ssl_context(&gctx, true);
+	struct generic_tls_ctx_t gctx;
+	create_generic_tls_context(&gctx, true);
 
 	server_key = key;	
 	{
@@ -195,7 +195,7 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 	int tcp_sock = create_tcp_socket(options->port);
 	if (tcp_sock == -1) {
 		log_msg(LLVL_ERROR, "Cannot start server without server socket.");
-		free_generic_ssl_context(&gctx);
+		free_generic_tls_context(&gctx);
 		return false;
 	}
 
@@ -203,7 +203,7 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 	if (tcp_sock == -1) {
 		log_msg(LLVL_ERROR, "Cannot broadcast without announcement UDP socket.");
 		close(tcp_sock);
-		free_generic_ssl_context(&gctx);
+		free_generic_tls_context(&gctx);
 		return false;
 	}
 
@@ -233,7 +233,7 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 			log_libc(LLVL_ERROR, "Unable to accept(2)");
 			close(udp_sock);
 			close(tcp_sock);
-			free_generic_ssl_context(&gctx);
+			free_generic_tls_context(&gctx);
 			return false;
 		}
 
@@ -295,7 +295,7 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 
 	close(udp_sock);
 	close(tcp_sock);
-	free_generic_ssl_context(&gctx);
+	free_generic_tls_context(&gctx);
 	return true;
 }
 

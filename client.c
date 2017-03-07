@@ -69,8 +69,8 @@ static unsigned int psk_client_callback(SSL *ssl, const char *hint, char *identi
 }
 
 static int dtls_client_connect(const struct keyentry_t *keyentry, const char *host_port) {
-	struct generic_ssl_ctx_t gctx;
-	create_generic_ssl_context(&gctx, false);
+	struct generic_tls_ctx_t gctx;
+	create_generic_tls_context(&gctx, false);
 
 	SSL_CTX_set_psk_client_callback(gctx.ctx, psk_client_callback);
 
@@ -121,7 +121,7 @@ static int dtls_client_connect(const struct keyentry_t *keyentry, const char *ho
 		}
 	}
 	BIO_free_all(conn);
-	free_generic_ssl_context(&gctx);
+	free_generic_tls_context(&gctx);
 	return 0;
 }
 

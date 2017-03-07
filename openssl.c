@@ -36,32 +36,32 @@ bool openssl_init(void) {
 	return true;
 }
 
-bool create_generic_ssl_context(struct generic_ssl_ctx_t *gctx, bool server) {
-	memset(gctx, 0, sizeof(struct generic_ssl_ctx_t));
+bool create_generic_tls_context(struct generic_tls_ctx_t *gctx, bool server) {
+	memset(gctx, 0, sizeof(struct generic_tls_ctx_t));
 
 	gctx->conf_ctx = SSL_CONF_CTX_new();
 	if (!gctx->conf_ctx) {
-		log_openssl(LLVL_FATAL, "Cannot initialize SSL generic context config context.");
+		log_openssl(LLVL_FATAL, "Cannot initialize TLS generic context config context.");
 		return false;
 	}
 
 	if (server) {
 		gctx->method = TLS_server_method();
 		if (!gctx->method) {
-			log_openssl(LLVL_FATAL, "Cannot initialize SSL server method.");
+			log_openssl(LLVL_FATAL, "Cannot initialize TLS server method.");
 			return false;
 		}
 	} else {
 		gctx->method = TLS_client_method();
 		if (!gctx->method) {
-			log_openssl(LLVL_FATAL, "Cannot initialize SSL client method.");
+			log_openssl(LLVL_FATAL, "Cannot initialize TLS client method.");
 			return false;
 		}
 	}
 
 	gctx->ctx = SSL_CTX_new(gctx->method);
 	if (!gctx->ctx) {
-		log_openssl(LLVL_FATAL, "Cannot initialize SSL generic context context.");
+		log_openssl(LLVL_FATAL, "Cannot initialize TLS generic context context.");
 		return false;
 	}
 
@@ -75,12 +75,12 @@ bool create_generic_ssl_context(struct generic_ssl_ctx_t *gctx, bool server) {
 	SSL_CTX_set_options(gctx->ctx, flags);
 
 	if (!SSL_CTX_set_min_proto_version(gctx->ctx, TLS1_2_VERSION)) {
-		log_openssl(LLVL_FATAL, "Cannot set SSL generic context minimal version.");
+		log_openssl(LLVL_FATAL, "Cannot set TLS generic context minimal version.");
 		return false;
 	}
 
 	if (!SSL_CTX_set_cipher_list(gctx->ctx, "ECDHE-PSK-CHACHA20-POLY1305")) {
-		log_openssl(LLVL_FATAL, "Cannot set SSL generic context cipher suites.");
+		log_openssl(LLVL_FATAL, "Cannot set TLS generic context cipher suites.");
 		return false;
 	}
 
@@ -88,20 +88,20 @@ bool create_generic_ssl_context(struct generic_ssl_ctx_t *gctx, bool server) {
 	 * (PSK); however for the future we want to have proper crypto here as
 	 * well. */
 	if (!SSL_CTX_set1_sigalgs_list(gctx->ctx, "ECDSA+SHA256:RSA+SHA256:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA512:RSA+SHA512")) {
-		log_openssl(LLVL_FATAL, "Cannot set SSL signature algorithms.");
+		log_openssl(LLVL_FATAL, "Cannot set TLS generic context signature algorithms.");
 		return false;
 	}
 
 	/* TODO: When X448 becomes available, include it here. */
 	if (!SSL_CTX_set1_curves_list(gctx->ctx, "X25519")) {
-		log_openssl(LLVL_FATAL, "Cannot set SSL generic context ECDHE curves.");
+		log_openssl(LLVL_FATAL, "Cannot set TLS generic context ECDHE curves.");
 		return false;
 	}
 	
 	return true;
 }
 
-void free_generic_ssl_context(struct generic_ssl_ctx_t *gctx) {
+void free_generic_tls_context(struct generic_tls_ctx_t *gctx) {
 	SSL_CTX_free(gctx->ctx);
 	gctx->ctx = NULL;
 
