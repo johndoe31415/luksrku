@@ -2,7 +2,7 @@
 #
 #
 
-VERSION="1.1.0b"
+VERSION="1.1.0e"
 URL="https://www.openssl.org/source/openssl-${VERSION}.tar.gz"
 LOCAL_TARGZ="openssl-${VERSION}.tar.gz"
 LOCAL_DIR="openssl-${VERSION}"

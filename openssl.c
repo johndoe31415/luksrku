@@ -78,17 +78,21 @@ bool create_generic_ssl_context(struct generic_ssl_ctx_t *gctx, bool server) {
 		log_openssl(LLVL_FATAL, "Cannot set SSL generic context minimal version.");
 		return false;
 	}
-	
-	if (!SSL_CTX_set_max_proto_version(gctx->ctx, TLS1_2_VERSION)) {
-		log_openssl(LLVL_FATAL, "Cannot set SSL generic context maximal version.");
-		return false;
-	}
 
 	if (!SSL_CTX_set_cipher_list(gctx->ctx, "ECDHE-PSK-CHACHA20-POLY1305")) {
 		log_openssl(LLVL_FATAL, "Cannot set SSL generic context cipher suites.");
 		return false;
 	}
 
+	/* In the cipher suite we're using, none of these should be used anyways
+	 * (PSK); however for the future we want to have proper crypto here as
+	 * well. */
+	if (!SSL_CTX_set1_sigalgs_list(gctx->ctx, "ECDSA+SHA256:RSA+SHA256:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA512:RSA+SHA512")) {
+		log_openssl(LLVL_FATAL, "Cannot set SSL signature algorithms.");
+		return false;
+	}
+
+	/* TODO: When X448 becomes available, include it here. */
 	if (!SSL_CTX_set1_curves_list(gctx->ctx, "X25519")) {
 		log_openssl(LLVL_FATAL, "Cannot set SSL generic context ECDHE curves.");
 		return false;
