@@ -10,7 +10,7 @@ feedback. Drop it at joe@johannes-bauer.com, please. Thanks!
 
 luksrku
 =======
-luksrus is a tool that allows you to remotely unlock LUKS disks during bootup.
+luksrku is a tool that allows you to remotely unlock LUKS disks during bootup.
 The intention is to have headless systems running and you should be able to
 remotely unlock their LUKS cryptographic file systems when you know they have
 been (legitimately) rebooted. This works as follows: The *TLS server* runs on
