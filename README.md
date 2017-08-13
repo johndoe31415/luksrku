@@ -94,9 +94,9 @@ d66f96fc-7056-46e1-aea6-0f3d705cd3bc    d94f3fc6c3507123bda4034dd8c865a1b4cf9870
 d66f96fc-7056-46e1-aea6-0f3d705cd3bc    d94f3fc6c3507123bda4034dd8c865a1b4cf9870bda50e9ed9f861621d581017    952ebed9-5256-4b4c-9de5-7f8829b4a74a=54444656365a3658794451353241537377564653456c386d7256666e4839463562
 ```
 
-     We follow the suggested passphrase, which should contain 192 bits of entropy.
-  4. We use cryptsetup luksAddKey to add the suggested passphrase to the LUKS
-     keyring of the server.
+  4. We want to use the suggested passphrase, which should contain 192 bits of
+	 entropy.  For this, ee use cryptsetup luksAddKey to add the suggested
+     passphrase to the LUKS keyring on the server.
   5. The config script has given suggestions for server.txt and client.txt. We
      copy the respective contents into the files.
   6. Then we create the client and server binary configuration files:
@@ -109,9 +109,9 @@ Successfully read key file with 1 entries.
 Passphrase to encrypt keyfile:
 ```
 
-     Now we'll have a server.bin and password-protected client.bin.
-  7. On the server machine (i.e., the one with the LUKS disk) we copy
-     server.bin to /etc/luksrku-server.bin.
+  7. Now we'll have a server.bin and password-protected client.bin. On the
+	 server machine (i.e., the one with the LUKS disk) we copy server.bin to
+     /etc/luksrku-server.bin.
   8. On the server, we modify the luksrku-script in the initramfs/ subdirectory
      to fit the NIC of the server and the IP address we want (this is really
      ugly at the moment and needs to be fixed ASAP, but it is what it is now).
