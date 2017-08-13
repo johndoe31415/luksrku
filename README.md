@@ -78,21 +78,21 @@ can do:
   2. Build and install luksrku: make && sudo make install
   3. Generate the keyfiles. For this we use the provided gen_config script:
 
-    ```bash
-    Disk UUID : 952ebed9-5256-4b4c-9de5-7f8829b4a74a
-    Disk name : crypt-root
-    Suggestion: TDFV6Z6XyDQ52ASswVFSEl8mrVfnH9F5b
-    Passphrase: 
+```
+Disk UUID : 952ebed9-5256-4b4c-9de5-7f8829b4a74a
+Disk name : crypt-root
+Suggestion: TDFV6Z6XyDQ52ASswVFSEl8mrVfnH9F5b
+Passphrase: 
 
-    Disk UUID : 
-    # server.txt
-    # Host UUID                             Host PSK                                                            Disk UUIDs
-    d66f96fc-7056-46e1-aea6-0f3d705cd3bc    d94f3fc6c3507123bda4034dd8c865a1b4cf9870bda50e9ed9f861621d581017    952ebed9-5256-4b4c-9de5-7f8829b4a74a=crypt-root
+Disk UUID : 
+# server.txt
+# Host UUID                             Host PSK                                                            Disk UUIDs
+d66f96fc-7056-46e1-aea6-0f3d705cd3bc    d94f3fc6c3507123bda4034dd8c865a1b4cf9870bda50e9ed9f861621d581017    952ebed9-5256-4b4c-9de5-7f8829b4a74a=crypt-root
 
-    # client.txt
-    # Host UUID                             Host PSK                                                            Disk UUIDs
-    d66f96fc-7056-46e1-aea6-0f3d705cd3bc    d94f3fc6c3507123bda4034dd8c865a1b4cf9870bda50e9ed9f861621d581017    952ebed9-5256-4b4c-9de5-7f8829b4a74a=54444656365a3658794451353241537377564653456c386d7256666e4839463562
-    ```
+# client.txt
+# Host UUID                             Host PSK                                                            Disk UUIDs
+d66f96fc-7056-46e1-aea6-0f3d705cd3bc    d94f3fc6c3507123bda4034dd8c865a1b4cf9870bda50e9ed9f861621d581017    952ebed9-5256-4b4c-9de5-7f8829b4a74a=54444656365a3658794451353241537377564653456c386d7256666e4839463562
+```
 
      We follow the suggested passphrase, which should contain 192 bits of entropy.
   4. We use cryptsetup luksAddKey to add the suggested passphrase to the LUKS
@@ -101,13 +101,13 @@ can do:
      copy the respective contents into the files.
   6. Then we create the client and server binary configuration files:
 
-    ```bash
-    $ luksrku-config server server.txt server.bin
-    Successfully read key file with 1 entries.
-    $ luksrku-config client client.txt client.bin
-    Successfully read key file with 1 entries.
-    Passphrase to encrypt keyfile:
-    ```
+```
+$ luksrku-config server server.txt server.bin
+Successfully read key file with 1 entries.
+$ luksrku-config client client.txt client.bin
+Successfully read key file with 1 entries.
+Passphrase to encrypt keyfile:
+```
 
      Now we'll have a server.bin and password-protected client.bin.
   7. On the server machine (i.e., the one with the LUKS disk) we copy
@@ -125,9 +125,9 @@ can do:
       These packets will be sent to UDP port 23170.
   12. On the client, start the client to unlock the server's key:
 
-     ```
-     $ luksrku --client-mode -k client.bin 
-     Keyfile password:
-     ```
+```
+$ luksrku --client-mode -k client.bin 
+Keyfile password:
+```
 
 
