@@ -33,7 +33,7 @@ struct runresult_t {
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 void argv_dump(const char **argv);
-struct runresult_t exec_command(const char **argv);
+struct runresult_t exec_command(const char **argv, bool show_output);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif

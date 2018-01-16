@@ -51,7 +51,7 @@ static void log_suffix(void) {
 	fprintf(stderr, "\n");
 }
 
-static bool should_log(enum loglvl_t level) {
+bool should_log(enum loglvl_t level) {
 	return level <= current_loglvl;
 }
 

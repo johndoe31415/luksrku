@@ -34,6 +34,7 @@ enum loglvl_t {
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 void log_setlvl(enum loglvl_t level);
+bool should_log(enum loglvl_t level);
 void log_msg(enum loglvl_t level, const char *msg, ...);
 void log_libc(enum loglvl_t level, const char *msg, ...);
 void log_openssl(enum loglvl_t level, const char *msg, ...);

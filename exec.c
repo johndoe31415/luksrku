@@ -78,7 +78,7 @@ static char **argv_dup(const char **argv) {
 	return result;
 }
 
-struct runresult_t exec_command(const char **argv) {
+struct runresult_t exec_command(const char **argv, bool show_output) {
 	struct runresult_t runresult;
 	char **argvcopy = argv_dup(argv);
 
@@ -93,12 +93,7 @@ struct runresult_t exec_command(const char **argv) {
 	}
 	if (pid == 0) {
 		/* Child */
-#ifdef DEBUG
-		const bool silent = true;
-#else
-		const bool silent = false;
-#endif
-		if (silent) {
+		if (!show_output) {
 			/* Shut up the child if user did not request debug output */
 			close(1);
 			close(2);

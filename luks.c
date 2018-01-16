@@ -42,7 +42,7 @@ bool is_luks_device_opened(const char *mapping_name) {
 		mapping_name,
 		NULL,
 	};
-	struct runresult_t runresult = exec_command(command);
+	struct runresult_t runresult = exec_command(command, should_log(LLVL_DEBUG));
 	return runresult.success && (runresult.returncode == 0);
 }
 
@@ -62,7 +62,7 @@ bool open_luks_device(const uint8_t *encrypted_device_uuid, const char *mapping_
 		NULL,
 
 	};
-	struct runresult_t runresult = exec_command(command);
+	struct runresult_t runresult = exec_command(command, should_log(LLVL_DEBUG));
 	return runresult.success && (runresult.returncode == 0);
 }
 
