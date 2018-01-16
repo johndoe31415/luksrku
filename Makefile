@@ -2,13 +2,10 @@
 all: luksrku luksrku-config
 
 INSTALL_PREFIX := /usr/local/
-OPENSSL_DIR := `pwd`/openssl-1.1.0e/
-#OPENSSL_DIR := /home/joe/openssl/
-#LIBDIR := /usr/lib/x86_64-linux-gnu/
-LIBDIR := $(OPENSSL_DIR)
-CFLAGS := -std=c11 -Wall -Wextra -O2 -pthread -D_POSIX_SOURCE -D_XOPEN_SOURCE=500 -Wmissing-prototypes -Wstrict-prototypes -Wno-unused-parameter -I$(OPENSSL_DIR)include
+CFLAGS := -std=c11 -Wall -Wextra -O2 -pthread -D_POSIX_SOURCE -D_XOPEN_SOURCE=500 -Wmissing-prototypes -Wstrict-prototypes -Wno-unused-parameter
 #CFLAGS += -g -DDEBUG
-LDFLAGS := -L$(OPENSSL_DIR) -lcrypto -lssl 
+LDFLAGS := -lcrypto -lssl
+LDFLAGS += -L/usr/local/lib
 #LDFLAGS := -static $(LIBDIR)libssl.a $(LIBDIR)libcrypto.a
 #LDFLAGS := -static $(LIBDIR)libssl.a $(LIBDIR)libcrypto.a -ldl
 
@@ -20,24 +17,21 @@ install: all
 	cp luksrku luksrku-config $(INSTALL_PREFIX)sbin/
 	chown root:root $(INSTALL_PREFIX)sbin/luksrku $(INSTALL_PREFIX)sbin/luksrku-config
 	chmod 755 $(INSTALL_PREFIX)sbin/luksrku $(INSTALL_PREFIX)sbin/luksrku-config
-	cp -a $(OPENSSL_DIR)libssl* $(OPENSSL_DIR)libcrypto* $(INSTALL_PREFIX)lib/
-	ldconfig
 
 clean:
 	rm -f $(OBJS) $(OBJS_CFG) luksrku luksrku-config
 
 valgrind: luksrku
-	LD_LIBRARY_PATH=$(OPENSSL_DIR) valgrind --leak-check=full --show-leak-kinds=all ./luksrku -v --client-mode -k client_keys.bin
-#LD_LIBRARY_PATH=$(OPENSSL_DIR) valgrind --leak-check=full --show-leak-kinds=all ./luksrku -v --server-mode -k server_key.bin
+	valgrind --leak-check=full --show-leak-kinds=all ./luksrku -v --client-mode -k client_keys.bin
 
 test: luksrku
-	LD_LIBRARY_PATH=$(OPENSSL_DIR) ./luksrku -v --server-mode -k server_key.bin
+	./luksrku -v --server-mode -k server_key.bin
 
 gdb: luksrku
-	LD_LIBRARY_PATH=$(OPENSSL_DIR) gdb --args ./luksrku -v --server-mode -k server_key.bin
+	gdb --args ./luksrku -v --server-mode -k server_key.bin
 
 testclient: luksrku
-	LD_LIBRARY_PATH=$(OPENSSL_DIR) ./luksrku -v --client-mode -k client_keys.bin
+	./luksrku -v --client-mode -k client_keys.bin
 
 derive: luksrku-config
 	./luksrku-config server server_key.txt server_key.bin

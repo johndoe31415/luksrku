@@ -33,6 +33,10 @@
 #include "log.h"
 #include "keyfile.h"
 
+#if OPENSSL_VERSION_NUMBER < 0x010100000
+#error "luksrku requires at least OpenSSL v1.1 to work."
+#endif
+
 int main(int argc, char **argv) {
 #ifdef DEBUG
 	fprintf(stderr, "WARNING: This has been compiled in DEBUG mode and uses reduced security.\n");
@@ -66,7 +70,7 @@ int main(int argc, char **argv) {
 #ifdef DEBUG
 		keydb_dump(&keydb);
 #endif
-		
+
 		if (keydb.entrycnt == 0) {
 			log_msg(LLVL_FATAL, "Key database file %s contains no keys.", options.keydbfile);
 			success = false;
@@ -79,13 +83,13 @@ int main(int argc, char **argv) {
 				success = false;
 				break;
 			}
-			
+
 			if (keydb_disk_key_count(&keydb) != 0) {
 				log_msg(LLVL_FATAL, "Server configuration files may not contain disk unlocking keys.");
 				success = false;
 				break;
 			}
-			
+
 			if (!dtls_server(keydb_getentry(&keydb, 0), &options)) {
 				log_msg(LLVL_FATAL, "Failed to start DTLS server.");
 				success = false;
@@ -99,7 +103,7 @@ int main(int argc, char **argv) {
 			}
 		}
 	} while (false);
-	
+
 	keydb_free(&keydb);
 	if (!success) {
 		exit(EXIT_FAILURE);
