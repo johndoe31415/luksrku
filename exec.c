@@ -93,7 +93,11 @@ struct runresult_t exec_command(const char **argv) {
 	}
 	if (pid == 0) {
 		/* Child */
+#ifdef DEBUG
 		const bool silent = true;
+#else
+		const bool silent = false;
+#endif
 		if (silent) {
 			/* Shut up the child if user did not request debug output */
 			close(1);
@@ -117,7 +121,7 @@ struct runresult_t exec_command(const char **argv) {
 		runresult.returncode = WEXITSTATUS(status);
 	}
 	argv_free(argvcopy);
-	log_msg(LLVL_DEBUG, "Subprocess (PID %d): %s %s returned %d", pid, argv[0], runresult.success ? "successfully" : "unsuccessfully", runresult.returncode);
+	log_msg(LLVL_DEBUG, "Subprocess (PID %d): %s exited with returncode %d", pid, argv[0], runresult.returncode);
 	return runresult;
 }
 
