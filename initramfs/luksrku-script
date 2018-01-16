@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2016 Johannes Bauer <joe@johannes-bauer.com>
+# Copyright 2016-2017 Johannes Bauer <joe@johannes-bauer.com>
 # Released under GPLv3
 
 PREREQ="lvm2"
@@ -21,13 +21,12 @@ case $1 in
 esac
 
 . /scripts/functions
-configure_networking
 
-#ETH_DEV="eno1"
-#ETH_IP="192.168.1.29"
-#ETH_NETMASK="255.255.255.0"
-#/bin/ifconfig "$ETH_DEV" up "$ETH_IP" netmask "$ETH_NETMASK"
-#/bin/ip route add default dev "$ETH_DEV"
+if [ ! -f /etc/luksrku-server.bin ]; then
+	exit 0
+fi
+
+configure_networking
 /sbin/luksrku --server-mode -v -k /etc/luksrku-server.bin
 
 exit 0
