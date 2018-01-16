@@ -101,8 +101,8 @@ struct runresult_t exec_command(const char **argv, bool show_output) {
 		execvp(argvcopy[0], argvcopy);
 		log_libc(LLVL_ERROR, "Execution of %s in forked child process failed execvp(3)", argvcopy[0]);
 
-		/* Exec failed, terminate chExec failed, terminate child process
-		 * (parent will catch this as the return code) */
+		/* Exec failed, terminate child with EXIT_FAILUR (parent will catch
+		 * this as the return code) */
 		exit(EXIT_FAILURE);
 	}
 
