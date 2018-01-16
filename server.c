@@ -54,7 +54,7 @@ static unsigned int psk_server_callback(SSL *ssl, const char *identity, unsigned
 	if (strcmp(identity, CLIENT_PSK_IDENTITY)) {
 		log_msg(LLVL_FATAL, "Server error: client identity '%s' unexpected (expected '%s').", identity, CLIENT_PSK_IDENTITY);
 		return 0;
-	}	
+	}
 	memcpy(psk, server_key->psk, PSK_SIZE_BYTES);
 	return PSK_SIZE_BYTES;
 }
@@ -74,7 +74,7 @@ static int create_tcp_socket(int port) {
 	}
 
 	{
-		int value = 1; 
+		int value = 1;
 		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
 	}
 
@@ -142,7 +142,7 @@ static bool send_udp_broadcast_message(int sd, int port, const void *data, int l
 
 static bool announce_waiting_message(int sd, int port, const struct keyentry_t *key) {
 	struct announcement_t msg;
-	const uint8_t magic[16] = CLIENT_ANNOUNCE_MAGIC;	
+	const uint8_t magic[16] = CLIENT_ANNOUNCE_MAGIC;
 	memset(&msg, 0, sizeof(msg));
 	memcpy(msg.magic, magic, 16);
 	memcpy(msg.host_uuid, key->host_uuid, 16);
@@ -155,7 +155,7 @@ static bool unlock_disk(const struct diskentry_t *disk, const uint8_t *passphras
 	sprintf_uuid(ascii_uuid, disk->disk_uuid);
 	log_msg(LLVL_INFO, "Trying to unlock disk %s with UUID %s", disk->devmapper_name, ascii_uuid);
 #ifdef DEBUG
-	fprintf(stderr, "Using key: ");
+	fprintf(stderr, "Using %d bytes key for unlocking: ", passphrase_length);
 	dump_hex(stderr, passphrase, passphrase_length);
 	fprintf(stderr, "\n");
 #endif
@@ -184,7 +184,7 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 	struct generic_tls_ctx_t gctx;
 	create_generic_tls_context(&gctx, true);
 
-	server_key = key;	
+	server_key = key;
 	{
 		char ascii_host_uuid[40];
 		sprintf_uuid(ascii_host_uuid, key->host_uuid);
@@ -247,7 +247,7 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 			log_msg(LLVL_DEBUG, "Client connected, waiting for data...");
 			while (true) {
 				struct msg_t msg;
-				int rxlen = SSL_read(ssl, &msg, sizeof(msg));				
+				int rxlen = SSL_read(ssl, &msg, sizeof(msg));
 				if (rxlen == 0) {
 					/* Client severed the connection */
 					break;
@@ -283,7 +283,7 @@ bool dtls_server(const struct keyentry_t *key, const struct options_t *options) 
 
 		SSL_free(ssl);
 		close(client);
-			
+
 		/* Connection closed */
 		if (all_disks_unlocked(key)) {
 			log_msg(LLVL_INFO, "All disks successfully unlocked.");
