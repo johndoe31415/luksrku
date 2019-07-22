@@ -42,24 +42,25 @@
 static const struct keydb_t *client_keydb;
 
 static unsigned int psk_client_callback(SSL *ssl, const char *hint, char *identity, unsigned int max_identity_len, unsigned char *psk, unsigned int max_psk_len) {
+	log_msg(LLVL_DEBUG, "psk_client_callback: SSL %p, hint '%s'.", ssl, hint);
 	if (max_psk_len < PSK_SIZE_BYTES) {
-		log_msg(LLVL_ERROR, "Client error: max_psk_len too small.\n");
+		log_msg(LLVL_ERROR, "Client error: max_psk_len too small.");
 		return 0;
 	}
 	if (max_identity_len < strlen(CLIENT_PSK_IDENTITY) + 1) {
-		log_msg(LLVL_ERROR, "Client error: max_identity_len too small.\n");
+		log_msg(LLVL_ERROR, "Client error: max_identity_len too small.");
 		return 0;
 	}
 
 	uint8_t parsed_uuid[16];
 	if (!parse_uuid(parsed_uuid, hint)) {
-		log_msg(LLVL_ERROR, "Client error: given hint is not a valid UUID.\n");
+		log_msg(LLVL_ERROR, "Client error: given hint '%s' is not a valid UUID.", hint);
 		return 0;
 	}
 
 	const struct keyentry_t *entry = keydb_find_entry_by_host_uuid(client_keydb, parsed_uuid);
 	if (!entry) {
-		log_msg(LLVL_ERROR, "Client error: server hint '%s' not present in database.\n", hint);
+		log_msg(LLVL_ERROR, "Client error: server hint '%s' not present in database.", hint);
 		return 0;
 	}
 
@@ -96,7 +97,7 @@ static int dtls_client_connect(const struct keyentry_t *keyentry, const char *ho
 		log_openssl(LLVL_ERROR, "Cannot perform SSL client connect.");
 		return false;
 	}
-	
+
 	if (BIO_do_handshake(conn) != 1) {
 		log_openssl(LLVL_ERROR, "Cannot perform SSL client handshake.");
 		return false;
@@ -127,7 +128,7 @@ static int dtls_client_connect(const struct keyentry_t *keyentry, const char *ho
 
 static bool parse_announcement(const struct options_t *options, const struct sockaddr_in *peer_addr, const struct announcement_t *announcement) {
 	log_msg(LLVL_DEBUG, "Parsing possible announcement from %d.%d.%d.%d:%d", PRINTF_FORMAT_IP(peer_addr), ntohs(peer_addr->sin_port));
-	const uint8_t expect_magic[16] = CLIENT_ANNOUNCE_MAGIC;		
+	const uint8_t expect_magic[16] = CLIENT_ANNOUNCE_MAGIC;
 	if (memcmp(announcement->magic, expect_magic, 16)) {
 		/* Magic number does not match, discard. */
 		return false;
@@ -175,7 +176,7 @@ bool dtls_client(const struct keydb_t *keydb, const struct options_t *options) {
 	}
 
 	{
-		int value = 1; 
+		int value = 1;
 		setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
 	}
 

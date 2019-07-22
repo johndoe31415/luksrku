@@ -79,6 +79,11 @@ bool create_generic_tls_context(struct generic_tls_ctx_t *gctx, bool server) {
 		return false;
 	}
 
+	if (!SSL_CTX_set_max_proto_version(gctx->ctx, TLS1_2_VERSION)) {
+		log_openssl(LLVL_FATAL, "Cannot set TLS generic context maximal version.");
+		return false;
+	}
+
 	if (!SSL_CTX_set_cipher_list(gctx->ctx, "ECDHE-PSK-CHACHA20-POLY1305")) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context cipher suites.");
 		return false;
@@ -97,7 +102,7 @@ bool create_generic_tls_context(struct generic_tls_ctx_t *gctx, bool server) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context ECDHE curves.");
 		return false;
 	}
-	
+
 	return true;
 }
 

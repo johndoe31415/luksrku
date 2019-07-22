@@ -36,7 +36,7 @@ char* query_passphrase(const char *prompt) {
 		log_libc(LLVL_ERROR, "malloc(3) of passphrase memory");
 		return NULL;
 	}
-	
+
 	if (EVP_read_pw_string(passphrase, MAX_PASSPHRASE_LENGTH - 1, prompt, 0) != 0) {
 		log_openssl(LLVL_ERROR, "EVP_read_pw_string failed");
 		free(passphrase);
@@ -66,8 +66,8 @@ void dump_hex(FILE *f, const void *vdata, unsigned int length) {
 
 bool is_hex(const char *str, int length) {
 	for (int i = 0; i < length; i++) {
-		if (((str[i] >= '0') && (str[i] <= '9')) || 
-			 ((str[i] >= 'a') && (str[i] <= 'f')) || 
+		if (((str[i] >= '0') && (str[i] <= '9')) ||
+			 ((str[i] >= 'a') && (str[i] <= 'f')) ||
 			 ((str[i] >= 'A') && (str[i] <= 'F'))) {
 			continue;
 		}
@@ -116,6 +116,9 @@ int parse_hexstr(const char *hexstr, uint8_t *data, int maxlen) {
 bool is_valid_uuid(const char *ascii_uuid) {
 	// e43fff25-5a01-40e8-b437-80b9d56c19ff
 	// '-' at offsets 8 13 18 23
+	if (!ascii_uuid) {
+		return false;
+	}
 	if (strlen(ascii_uuid) != 36) {
 		return false;
 	}
