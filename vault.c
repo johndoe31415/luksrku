@@ -264,16 +264,18 @@ int main(void) {
 	 */
 	struct vault_t *vault = vault_init(64, 0.1);
 	dump(vault->data, vault->data_length);
-	if (!vault_close(vault)) {
-		fprintf(stderr, "vault close failed.\n");
-		abort();
+	for (int i = 0; i < 10; i++) {
+		if (!vault_close(vault)) {
+			fprintf(stderr, "vault close failed.\n");
+			abort();
+		}
+		dump(vault->data, vault->data_length);
+		if (!vault_open(vault)) {
+			fprintf(stderr, "vault open failed.\n");
+			abort();
+		}
+		dump(vault->data, vault->data_length);
 	}
-	dump(vault->data, vault->data_length);
-	if (!vault_open(vault)) {
-		fprintf(stderr, "vault open failed.\n");
-		abort();
-	}
-	dump(vault->data, vault->data_length);
 	vault_free(vault);
 	return 0;
 }
