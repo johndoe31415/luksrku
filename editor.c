@@ -278,7 +278,7 @@ void editor_start(void) {
 }
 
 #ifndef __TEST_EDITOR__
-// gcc -D_POSIX_SOURCE -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -o editor editor.c util.c log.c -lasan -lubsan -lcrypto && ./editor
+// gcc -D_POSIX_SOURCE -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -o editor editor.c util.c log.c keydb.c file_encryption.c -lasan -lubsan -lcrypto && ./editor
 
 
 int main(int argc, char **argv) {

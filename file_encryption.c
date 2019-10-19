@@ -1,6 +1,6 @@
 /*
 	luksrku - Tool to remotely unlock LUKS disks using TLS.
-	Copyright (C) 2016-2016 Johannes Bauer
+	Copyright (C) 2016-2019 Johannes Bauer
 
 	This file is part of luksrku.
 
@@ -31,21 +31,27 @@
 #include <openssl/rand.h>
 
 #include "openssl.h"
-#include "keyfile.h"
-#include "binkeyfile.h"
+#include "file_encryption.h"
 #include "log.h"
 #include "util.h"
 #include "global.h"
+
+struct key_t {
+	const char *passphrase;
+	enum kdf_t kdf;
+	uint8_t salt[ENCRYPTED_FILE_SALT_SIZE];
+	uint8_t key[ENCRYPTED_FILE_KEY_SIZE];
+};
 
 #ifdef DEBUG
 static void dump_key(const struct key_t *key) {
 	fprintf(stderr, "Dumping key:\n");
 	fprintf(stderr, "   Passphrase : %s\n", key->passphrase);
 	fprintf(stderr, "   Salt       : ");
-	dump_hex(stderr, key->salt, BINKEYFILE_SALT_SIZE);
+	dump_hex(stderr, key->salt, ENCRYPTED_FILE_SALT_SIZE);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "   Derived key: ");
-	dump_hex(stderr, key->key, BINKEYFILE_KEY_SIZE);
+	dump_hex(stderr, key->key, ENCRYPTED_FILE_KEY_SIZE);
 	fprintf(stderr, "\n");
 }
 #endif
@@ -53,14 +59,56 @@ static void dump_key(const struct key_t *key) {
 
 /* Derives a previous key with known salt. Passphrase and salt must be set. */
 static bool derive_previous_key(struct key_t *key) {
-	const unsigned int maxalloc_mib = 8 + ((128 * SCRYPT_N * SCRYPT_r * SCRYPT_p + (1024 * 1024 - 1)) / 1024 / 1024);
-	log_msg(LLVL_DEBUG, "Deriving scrypt key with N = %u, r = %u, p = %u, i.e., ~%u MiB of memory", SCRYPT_N, SCRYPT_r, SCRYPT_p, maxalloc_mib);
-
 	const char *passphrase = (key->passphrase == NULL) ? "" : key->passphrase;
-	int pwlen = strlen(passphrase);
-	int result = EVP_PBE_scrypt(passphrase, pwlen, (unsigned char*)key->salt, BINKEYFILE_SALT_SIZE, SCRYPT_N, SCRYPT_r, SCRYPT_p, maxalloc_mib * 1024 * 1024, key->key, BINKEYFILE_KEY_SIZE);
-	if (result != 1) {
-		log_msg(LLVL_FATAL, "Fatal: key derivation using scrypt failed");
+	const unsigned int pwlen = strlen(passphrase);
+
+	if ((key->kdf >= KDF_SCRYPT_MIN) && (key->kdf <= KDF_SCRYPT_MAX)) {
+		unsigned int N, r, p;
+		switch (key->kdf) {
+			case KDF_SCRYPT_N17_r8_p1:
+				N = 1 << 17;
+				r = 8;
+				p = 1;
+				break;
+
+			case KDF_SCRYPT_N18_r8_p1:
+				N = 1 << 18;
+				r = 8;
+				p = 1;
+				break;
+
+			default:
+				log_msg(LLVL_FATAL, "Fatal: unknown scrypt key derivation function (0x%x)", key->kdf);
+				return false;
+		}
+
+		const unsigned int maxalloc_mib = 8 + ((128 * N * r * p + (1024 * 1024 - 1)) / 1024 / 1024);
+		log_msg(LLVL_DEBUG, "Deriving scrypt key with N = %u, r = %u, p = %u, i.e., ~%u MiB of memory", N, r, p, maxalloc_mib);
+
+		int result = EVP_PBE_scrypt(passphrase, pwlen, (const unsigned char*)key->salt, ENCRYPTED_FILE_SALT_SIZE, N, r, p, maxalloc_mib * 1024 * 1024, key->key, ENCRYPTED_FILE_KEY_SIZE);
+		if (result != 1) {
+			log_msg(LLVL_FATAL, "Fatal: key derivation using scrypt failed");
+			return false;
+		}
+	} else if ((key->kdf >= KDF_PBKDF2_MIN) && (key->kdf <= KDF_PBKDF2_MAX)) {
+		unsigned int iterations;
+		switch (key->kdf) {
+			case KDF_PBKDF2_SHA256_1000:
+				iterations = 1000;
+				break;
+
+			default:
+				log_msg(LLVL_FATAL, "Fatal: unknown PBKDF2 key derivation function (0x%x)", key->kdf);
+				return false;
+		}
+
+		int result = PKCS5_PBKDF2_HMAC(passphrase, pwlen, (const unsigned char*)key->salt, ENCRYPTED_FILE_SALT_SIZE, iterations, EVP_sha256(), ENCRYPTED_FILE_KEY_SIZE, key->key);
+		if (result != 1) {
+			log_msg(LLVL_FATAL, "Fatal: key derivation using PBKDF2 failed");
+			return false;
+		}
+	} else {
+		log_msg(LLVL_FATAL, "Fatal: unknown key derivation function (0x%x)", key->kdf);
 		return false;
 	}
 #ifdef DEBUG
@@ -224,62 +272,66 @@ static bool decrypt_aes256_gcm(unsigned char *ciphertext, unsigned int ciphertex
 
 /* Generates a random salt and derives a new key. Passphrase must be set. */
 static bool derive_new_key(struct key_t *key) {
-	if (!RAND_bytes(key->salt, BINKEYFILE_SALT_SIZE)) {
+	if (!RAND_bytes(key->salt, ENCRYPTED_FILE_SALT_SIZE)) {
 		log_msg(LLVL_FATAL, "Cannot get salt entropy from RAND_bytes()");
 		return false;
 	}
 	return derive_previous_key(key);
 }
 
-bool read_binary_keyfile(const char *filename, struct keydb_t *keydb) {
-	bool success = true;
-	struct binkeyfile_t *binkeyfile = NULL;
-	struct keyentry_t *plaintext = NULL;
+struct decrypted_file_t read_encrypted_file(const char *filename) {
+	struct decrypted_file_t result = {
+		.success = true,
+		.data = NULL,
+	};
+	struct encrypted_file_t *encrypted_file = NULL;
 
-	unsigned int binkeyfile_size = 0;
-	unsigned int plaintext_size = 0;
 	do {
-		memset(keydb, 0, sizeof(struct keydb_t));
-
 		/* Stat the file first to find out the size */
 		struct stat statbuf;
 		if (stat(filename, &statbuf) == -1) {
 			log_libc(LLVL_ERROR, "stat of %s failed", filename);
-			success = false;
+			result.success = false;
 			break;
 		}
 
-		/* Check if this is long enough to be a key file */
-		binkeyfile_size = statbuf.st_size;
-		if (binkeyfile_size < sizeof(struct binkeyfile_t)) {
-			log_msg(LLVL_ERROR, "Keyfile size of %s is too small to be valid (%d bytes).", filename, statbuf.st_size);
-			success = false;
-			break;
-		}
-
-		/* Check if the payload is a multiple of the keyent_t structure */
-		const unsigned int ciphertext_size = binkeyfile_size - sizeof(struct binkeyfile_t);
-		if ((ciphertext_size % sizeof(struct keyentry_t)) != 0) {
-			log_msg(LLVL_ERROR, "Keyfile size of %s has impossible/invalid file size (%d bytes not a multiple of %lu bytes).", filename, statbuf.st_size, sizeof(struct keyentry_t));
-			success = false;
+		/* Check if the file is long enough to be an encrypted file */
+		const unsigned int encrypted_file_size = statbuf.st_size;
+		if (encrypted_file_size < sizeof(struct encrypted_file_t)) {
+			log_msg(LLVL_ERROR, "%s: too small to be encrypted file (%u bytes)", encrypted_file_size);
+			result.success = false;
 			break;
 		}
 
 		/* Now allocate memory for plain- and ciphertext */
-		plaintext_size = ciphertext_size;
-		binkeyfile = calloc(1, binkeyfile_size);
-		plaintext = calloc(1, plaintext_size);
+		encrypted_file = malloc(encrypted_file_size);
+		if (!encrypted_file) {
+			log_libc(LLVL_ERROR, "malloc(3) of encrypted file (%u bytes) failed", encrypted_file_size);
+			result.success = false;
+			break;
+		}
 
-		/* And read the file in */
+		const unsigned int ciphertext_size = encrypted_file_size - sizeof(struct encrypted_file_t);
+		const unsigned int plaintext_size = ciphertext_size;
+		result.data_length = plaintext_size;
+		result.data = malloc(plaintext_size);
+		if (!result.data) {
+			log_libc(LLVL_ERROR, "malloc(3) of plaintext (%u bytes) failed", plaintext_size);
+			result.success = false;
+			break;
+		}
+
+		/* Read in the encrypted file */
 		FILE *f = fopen(filename, "r");
 		if (!f) {
 			log_libc(LLVL_ERROR, "fopen");
-			success = false;
+			result.success = false;
 			break;
 		}
-		if (fread(binkeyfile, binkeyfile_size, 1, f) != 1) {
+		if (fread(encrypted_file, encrypted_file_size, 1, f) != 1) {
 			log_libc(LLVL_ERROR, "fread");
-			success = false;
+			result.success = false;
+			fclose(f);
 			break;
 		}
 		fclose(f);
@@ -288,17 +340,18 @@ bool read_binary_keyfile(const char *filename, struct keydb_t *keydb) {
 		 * proper decryption key */
 		struct key_t key;
 		memset(&key, 0, sizeof(struct key_t));
-		memcpy(key.salt, binkeyfile->salt, BINKEYFILE_IV_SIZE);
+		memcpy(key.salt, encrypted_file->salt, ENCRYPTED_FILE_IV_SIZE);
+		key.kdf = encrypted_file->kdf;
 
 		/* Get the passphrase from the user (if it is protected with one) */
 		char *user_passphrase = NULL;
-		if (binkeyfile->empty_passphrase) {
+		if (encrypted_file->empty_passphrase) {
 			key.passphrase = "";
 		} else {
-			user_passphrase = query_passphrase("Keyfile password: ");
+			user_passphrase = query_passphrase("Keyfile password: ", MAX_PASSPHRASE_LENGTH);
 			if (!user_passphrase) {
 				log_msg(LLVL_FATAL, "Failed to query passphrase.");
-				success = false;
+				result.success = false;
 				break;
 			}
 			key.passphrase = user_passphrase;
@@ -307,92 +360,87 @@ bool read_binary_keyfile(const char *filename, struct keydb_t *keydb) {
 		/* Then derive the key */
 		if (!derive_previous_key(&key)) {
 			log_msg(LLVL_FATAL, "Key derivation failed.");
-			success = false;
+			result.success = false;
 			break;
 		}
 
 		/* If we used a passphrase, free it again */
 		if (user_passphrase) {
 			key.passphrase = NULL;
-			memset(user_passphrase, 0, MAX_PASSPHRASE_LENGTH);
+			OPENSSL_cleanse(user_passphrase, MAX_PASSPHRASE_LENGTH);
 			free(user_passphrase);
 		}
 
 		/* Then do the decryption and check if authentication is OK */
-		bool decryption_successful = decrypt_aes256_gcm(binkeyfile->ciphertext, ciphertext_size, binkeyfile->auth_tag, key.key, binkeyfile->iv, plaintext);
+		bool decryption_successful = decrypt_aes256_gcm(encrypted_file->ciphertext, ciphertext_size, encrypted_file->auth_tag, key.key, encrypted_file->iv, result.data);
 		if (!decryption_successful) {
 			log_msg(LLVL_FATAL, "Decryption error. Wrong passphrase or given file corrupt.");
-			success = false;
+			result.success = false;
 			break;
-		}
-
-		/* Finally copy the decrypted linear file over to the keydb_t structure
-		 **/
-		for (unsigned int i = 0; i < plaintext_size / sizeof(struct keyentry_t); i++) {
-			if (!add_keyslot(keydb)) {
-				log_msg(LLVL_FATAL, "Failed to add keyslot.");
-				success = false;
-				break;
-			}
-			memcpy(last_keyentry(keydb), &plaintext[i], sizeof(struct keyentry_t));
 		}
 	} while (false);
 
-	if (plaintext) {
-		memset(plaintext, 0, plaintext_size);
-		free(plaintext);
+	if (!result.success) {
+		if (result.data) {
+			OPENSSL_cleanse(result.data, result.data_length);
+			free(result.data);
+		}
+		result.data = NULL;
+		result.data_length = 0;
 	}
-	if (binkeyfile) {
-		memset(binkeyfile, 0, binkeyfile_size);
-		free(binkeyfile);
+	if (encrypted_file) {
+		free(encrypted_file);
 	}
-	return success;
+	return result;
 }
 
-bool write_binary_keyfile(const char *filename, const struct keydb_t *keydb, const char *passphrase) {
-	struct key_t key;
-	memset(&key, 0, sizeof(struct key_t));
-	key.passphrase = passphrase;
+bool write_encrypted_file(const char *filename, const void *plaintext, unsigned int plaintext_length, const char *passphrase, enum kdf_t kdf) {
+	struct key_t key = {
+		.passphrase = passphrase ? passphrase : "",
+		.kdf = kdf,
+	};
 	if (!derive_new_key(&key)) {
 		log_msg(LLVL_FATAL, "Key derivation failed.");
 		return false;
 	}
 
 	/* Allocate memory for plain- and ciphertext */
-	const unsigned int payload_size = keydb->entrycnt * sizeof(struct keyentry_t);
-	const unsigned int binkeyfile_size = sizeof(struct binkeyfile_t) + payload_size;
-	struct keyentry_t *plaintext = calloc(1, payload_size);
-	struct binkeyfile_t *binkeyfile = calloc(1, binkeyfile_size);
-	if (!plaintext || !binkeyfile) {
-		log_libc(LLVL_FATAL, "malloc(3) plaintext or binkeyfile failed");
+	const unsigned int ciphertext_length = plaintext_length;
+	const unsigned int encrypted_file_size = sizeof(struct encrypted_file_t) + ciphertext_length;
+	struct encrypted_file_t *encrypted_file = calloc(1, encrypted_file_size);
+	if (!encrypted_file) {
+		log_libc(LLVL_FATAL, "malloc(3) of encrypted_file failed");
+		OPENSSL_cleanse(&key, sizeof(key));
 		return false;
 	}
 
-	/* Randomize encrypting IV and copy over key salt */
-	if (RAND_bytes(binkeyfile->iv, BINKEYFILE_IV_SIZE) != 1) {
+	/* Initialize encrypted file structure */
+	encrypted_file->empty_passphrase = (strlen(key.passphrase) == 0) ? 1 : 0;
+	encrypted_file->kdf = key.kdf;
+	memcpy(encrypted_file->salt, key.salt, ENCRYPTED_FILE_SALT_SIZE);
+
+	/* Randomize encrypting IV */
+	if (RAND_bytes(encrypted_file->iv, ENCRYPTED_FILE_IV_SIZE) != 1) {
 		log_openssl(LLVL_FATAL, "Failed to get entropy from RAND_bytes for IV");
+		OPENSSL_cleanse(&key, sizeof(key));
 		return false;
-
-	}
-	memcpy(binkeyfile->salt, key.salt, BINKEYFILE_SALT_SIZE);
-	binkeyfile->empty_passphrase = (passphrase == NULL) || (strlen(passphrase) == 0);
-
-	/* Copy plaintext into linear data array to prepare for encryption */
-	for (int i = 0; i < keydb->entrycnt; i++) {
-		memcpy(&plaintext[i], &keydb->entries[i], sizeof(struct keyentry_t));
 	}
 
-	/* Encrypt */
-	if (!encrypt_aes256_gcm(plaintext, payload_size, key.key, binkeyfile->iv, binkeyfile->ciphertext, binkeyfile->auth_tag)) {
+	/* Encrypt and authenticate plaintext */
+	if (!encrypt_aes256_gcm(plaintext, plaintext_length, key.key, encrypted_file->iv, encrypted_file->ciphertext, encrypted_file->auth_tag)) {
 		log_libc(LLVL_FATAL, "encryption failed");
+		OPENSSL_cleanse(&key, sizeof(key));
 		return false;
 	}
+
+	/* Destroy derived key */
+	OPENSSL_cleanse(&key, sizeof(key));
 
 	/* Write encrypted data to file */
 	FILE *f = fopen(filename, "w");
 	bool success = true;
 	if (f) {
-		if (fwrite(binkeyfile, binkeyfile_size, 1, f) != 1) {
+		if (fwrite(encrypted_file, encrypted_file_size, 1, f) != 1) {
 			log_libc(LLVL_ERROR, "fwrite(3) into %s failed", filename);
 			success = false;
 		}
@@ -403,9 +451,5 @@ bool write_binary_keyfile(const char *filename, const struct keydb_t *keydb, con
 		return false;
 	}
 
-	/* Destroy plaintext copy before freeing memory */
-	memset(plaintext, 0, payload_size);
-	free(plaintext);
 	return success;
 }
-

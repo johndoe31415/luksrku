@@ -1,6 +1,6 @@
 /*
 	luksrku - Tool to remotely unlock LUKS disks using TLS.
-	Copyright (C) 2016-2016 Johannes Bauer
+	Copyright (C) 2016-2019 Johannes Bauer
 
 	This file is part of luksrku.
 
@@ -21,14 +21,33 @@
 	Johannes Bauer <JohannesBauer@gmx.de>
 */
 
-#ifndef __SERVER_H__
-#define __SERVER_H__
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 
 #include "keydb.h"
-#include "cmdline.h"
+#include "util.h"
 
-/*************** AUTO GENERATED SECTION FOLLOWS ***************/
-bool dtls_server(const struct keyentry_t *key, const struct options_t *options);
-/***************  AUTO GENERATED SECTION ENDS   ***************/
+unsigned int keydb_getsize(const struct keydb_t *keydb) {
+	return sizeof(struct keydb_t) + (keydb->host_count * sizeof(struct host_entry_t));
+}
 
-#endif
+void keydb_init(struct keydb_t *keydb) {
+	memset(keydb, 0, sizeof(struct keydb_t));
+	keydb->keydb_version = KEYDB_VERSION;
+	keydb->server_database = true;
+}
+
+void keydb_free(struct keydb_t *keydb) {
+	memset(keydb, 0, keydb_getsize(keydb));
+	free(keydb);
+}
+
+void keydb_write(const struct keydb_t *keydb, const char *filename, const char *passphrase, enum kdf_t kdf) {
+
+}
+
+struct keydb_t* keydb_read(const char *filename) {
+	return NULL;
+}

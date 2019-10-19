@@ -30,14 +30,14 @@
 #include "log.h"
 #include "global.h"
 
-char* query_passphrase(const char *prompt) {
-	char *passphrase = calloc(1, MAX_PASSPHRASE_LENGTH);
+char* query_passphrase(const char *prompt, unsigned int max_length) {
+	char *passphrase = calloc(1, max_length + 1);
 	if (!passphrase) {
 		log_libc(LLVL_ERROR, "malloc(3) of passphrase memory");
 		return NULL;
 	}
 
-	if (EVP_read_pw_string(passphrase, MAX_PASSPHRASE_LENGTH - 1, prompt, 0) != 0) {
+	if (EVP_read_pw_string(passphrase, max_length, prompt, 0) != 0) {
 		log_openssl(LLVL_ERROR, "EVP_read_pw_string failed");
 		free(passphrase);
 		return NULL;

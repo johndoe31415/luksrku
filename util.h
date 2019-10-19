@@ -31,7 +31,7 @@
 #define PRINTF_FORMAT_IP(saddrptr)		(saddrptr->sin_addr.s_addr >> 0) & 0xff, (saddrptr->sin_addr.s_addr >> 8) & 0xff, (saddrptr->sin_addr.s_addr >> 16) & 0xff, (saddrptr->sin_addr.s_addr >> 24) & 0xff
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-char* query_passphrase(const char *prompt);
+char* query_passphrase(const char *prompt, unsigned int max_length);
 void dump_hex_long(FILE *f, const void *vdata, unsigned int length);
 void dump_hex(FILE *f, const void *vdata, unsigned int length);
 bool is_hex(const char *str, int length);

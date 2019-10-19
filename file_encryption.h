@@ -1,6 +1,6 @@
 /*
 	luksrku - Tool to remotely unlock LUKS disks using TLS.
-	Copyright (C) 2016-2016 Johannes Bauer
+	Copyright (C) 2016-2019 Johannes Bauer
 
 	This file is part of luksrku.
 
@@ -21,34 +21,46 @@
 	Johannes Bauer <JohannesBauer@gmx.de>
 */
 
-#ifndef __BINKEYFILE_H__
-#define __BINKEYFILE_H__
+#ifndef __FILE_ENCRYPTION_H__
+#define __FILE_ENCRYPTION_H__
 
 #include <stdint.h>
 #include <stdbool.h>
 
-#define BINKEYFILE_SALT_SIZE			16
-#define BINKEYFILE_KEY_SIZE				32
-#define BINKEYFILE_AUTH_TAG_SIZE		16
-#define BINKEYFILE_IV_SIZE				16
+enum kdf_t {
+	KDF_SCRYPT_MIN = 1,
+	KDF_SCRYPT_N17_r8_p1 = 1,
+	KDF_SCRYPT_N18_r8_p1 = 2,
+	KDF_SCRYPT_MAX = 2,
 
-struct key_t {
-	const char *passphrase;
-	uint8_t salt[BINKEYFILE_SALT_SIZE];
-	uint8_t key[BINKEYFILE_KEY_SIZE];
+	KDF_PBKDF2_MIN = 100,
+	KDF_PBKDF2_SHA256_1000 = 100,
+	KDF_PBKDF2_MAX = 100,
 };
 
-struct binkeyfile_t {
-	bool empty_passphrase;
-	uint8_t salt[BINKEYFILE_SALT_SIZE];
-	uint8_t iv[BINKEYFILE_IV_SIZE];
-	uint8_t auth_tag[BINKEYFILE_AUTH_TAG_SIZE];
+#define ENCRYPTED_FILE_SALT_SIZE			16
+#define ENCRYPTED_FILE_KEY_SIZE				32
+#define ENCRYPTED_FILE_AUTH_TAG_SIZE		16
+#define ENCRYPTED_FILE_IV_SIZE				16
+
+struct encrypted_file_t {
+	uint32_t empty_passphrase;
+	uint32_t kdf;
+	uint8_t salt[ENCRYPTED_FILE_SALT_SIZE];
+	uint8_t iv[ENCRYPTED_FILE_IV_SIZE];
+	uint8_t auth_tag[ENCRYPTED_FILE_AUTH_TAG_SIZE];
 	uint8_t ciphertext[];
 };
 
+struct decrypted_file_t {
+	bool success;
+	unsigned int data_length;
+	void *data;
+};
+
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-bool read_binary_keyfile(const char *filename, struct keydb_t *keydb);
-bool write_binary_keyfile(const char *filename, const struct keydb_t *keydb, const char *passphrase);
+struct decrypted_file_t read_encrypted_file(const char *filename);
+bool write_encrypted_file(const char *filename, const void *plaintext, unsigned int plaintext_length, const char *passphrase, enum kdf_t kdf);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif
