@@ -1,7 +1,7 @@
 .PHONY: all clean test testclient derive install
 all: luksrku luksrku-config
 
-BUILD_REVISION := $(shell git describe --abbrev=10 --dirty --always)
+BUILD_REVISION := $(shell git describe --abbrev=10 --dirty --always --tags)
 INSTALL_PREFIX := /usr/local/
 CFLAGS := -Wall -Wextra -Wshadow -Wswitch -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Werror=implicit-function-declaration -Werror=format -Wno-unused-parameter
 #CFLAGS := -Wall -Wextra -O2  -Wmissing-prototypes -Wstrict-prototypes
