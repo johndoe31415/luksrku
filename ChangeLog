@@ -1,3 +1,8 @@
+Summary of changes of v0.02 (2019-10-19)
+========================================
+	* Tiny change that shows the version number as a tag instead of just the
+	commit number in the help page.
+
 Summary of changes of v0.01 (2019-10-19)
 ========================================
 	* Initial release. Have been using it daily for three years and it works
