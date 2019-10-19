@@ -54,8 +54,8 @@ static void dump_key(const struct key_t *key) {
 /* Derives a previous key with known salt. Passphrase and salt must be set. */
 static bool derive_previous_key(struct key_t *key) {
 	const unsigned int maxalloc_mib = 8 + ((128 * SCRYPT_N * SCRYPT_r * SCRYPT_p + (1024 * 1024 - 1)) / 1024 / 1024);
-	log_msg(LLVL_DEBUG, "Deriving scrypt key with N = %u, r = %u, p = %u, i.e., ~%u MiB of memory", SCRYPT_N, SCRYPT_r, SCRYPT_p, maxalloc_mib);	
-	
+	log_msg(LLVL_DEBUG, "Deriving scrypt key with N = %u, r = %u, p = %u, i.e., ~%u MiB of memory", SCRYPT_N, SCRYPT_r, SCRYPT_p, maxalloc_mib);
+
 	const char *passphrase = (key->passphrase == NULL) ? "" : key->passphrase;
 	int pwlen = strlen(passphrase);
 	int result = EVP_PBE_scrypt(passphrase, pwlen, (unsigned char*)key->salt, BINKEYFILE_SALT_SIZE, SCRYPT_N, SCRYPT_r, SCRYPT_p, maxalloc_mib * 1024 * 1024, key->key, BINKEYFILE_KEY_SIZE);
@@ -71,7 +71,7 @@ static bool derive_previous_key(struct key_t *key) {
 
 static bool encrypt_aes256_gcm(const void *plaintext, unsigned int plaintext_len, unsigned char *key, unsigned char *iv, unsigned char *ciphertext, unsigned char *tag) {
 	bool success = true;
-	log_msg(LLVL_DEBUG, "Encrypting %u bytes of plaintext using AES256-GCM", plaintext_len);	
+	log_msg(LLVL_DEBUG, "Encrypting %u bytes of plaintext using AES256-GCM", plaintext_len);
 
 	EVP_CIPHER_CTX *ctx = NULL;
 	do {
@@ -82,8 +82,8 @@ static bool encrypt_aes256_gcm(const void *plaintext, unsigned int plaintext_len
 			success = false;
 			break;
 		}
-		if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL)) {		
-			log_openssl(LLVL_FATAL, "Error in EVP_EncryptInit_ex");		
+		if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL)) {
+			log_openssl(LLVL_FATAL, "Error in EVP_EncryptInit_ex");
 			success = false;
 			break;
 		}
@@ -147,9 +147,9 @@ static bool encrypt_aes256_gcm(const void *plaintext, unsigned int plaintext_len
 static bool decrypt_aes256_gcm(unsigned char *ciphertext, unsigned int ciphertext_len, unsigned char *tag, unsigned char *key, unsigned char *iv, void *plaintext) {
 	bool success = true;
 	log_msg(LLVL_DEBUG, "Decrypting %u bytes of ciphertext using AES256-GCM", ciphertext_len);
-		
+
 	EVP_CIPHER_CTX *ctx = NULL;
-	do {	
+	do {
 		/* Create and initialise the context */
 		ctx = EVP_CIPHER_CTX_new();
 		if (!ctx) {
@@ -203,7 +203,7 @@ static bool decrypt_aes256_gcm(unsigned char *ciphertext, unsigned int ciphertex
 		/* Finalise the decryption. A positive return value indicates success,
 		 * anything else is a failure - the plaintext is not trustworthy. */
 		int padding_len = 0;
-		if (EVP_DecryptFinal_ex(ctx, plaintext + plaintext_len, &padding_len) <= 0) {
+		if (EVP_DecryptFinal_ex(ctx, (uint8_t*)plaintext + plaintext_len, &padding_len) <= 0) {
 			log_openssl(LLVL_FATAL, "Decryption of tail failed.");
 			success = false;
 			break;
@@ -240,8 +240,8 @@ bool read_binary_keyfile(const char *filename, struct keydb_t *keydb) {
 	unsigned int plaintext_size = 0;
 	do {
 		memset(keydb, 0, sizeof(struct keydb_t));
-	
-		/* Stat the file first to find out the size */	
+
+		/* Stat the file first to find out the size */
 		struct stat statbuf;
 		if (stat(filename, &statbuf) == -1) {
 			log_libc(LLVL_ERROR, "stat of %s failed", filename);
@@ -283,7 +283,7 @@ bool read_binary_keyfile(const char *filename, struct keydb_t *keydb) {
 			break;
 		}
 		fclose(f);
-	
+
 		/* Copy the file's salt into the key structure so we can derive the
 		 * proper decryption key */
 		struct key_t key;
@@ -328,7 +328,7 @@ bool read_binary_keyfile(const char *filename, struct keydb_t *keydb) {
 
 		/* Finally copy the decrypted linear file over to the keydb_t structure
 		 **/
-		for (unsigned int i = 0; i < plaintext_size / sizeof(struct keyentry_t); i++) {		
+		for (unsigned int i = 0; i < plaintext_size / sizeof(struct keyentry_t); i++) {
 			if (!add_keyslot(keydb)) {
 				log_msg(LLVL_FATAL, "Failed to add keyslot.");
 				success = false;
@@ -337,14 +337,14 @@ bool read_binary_keyfile(const char *filename, struct keydb_t *keydb) {
 			memcpy(last_keyentry(keydb), &plaintext[i], sizeof(struct keyentry_t));
 		}
 	} while (false);
-		
+
 	if (plaintext) {
 		memset(plaintext, 0, plaintext_size);
 		free(plaintext);
 	}
 	if (binkeyfile) {
 		memset(binkeyfile, 0, binkeyfile_size);
-		free(binkeyfile);	
+		free(binkeyfile);
 	}
 	return success;
 }
@@ -381,7 +381,7 @@ bool write_binary_keyfile(const char *filename, const struct keydb_t *keydb, con
 	for (int i = 0; i < keydb->entrycnt; i++) {
 		memcpy(&plaintext[i], &keydb->entries[i], sizeof(struct keyentry_t));
 	}
-	
+
 	/* Encrypt */
 	if (!encrypt_aes256_gcm(plaintext, payload_size, key.key, binkeyfile->iv, binkeyfile->ciphertext, binkeyfile->auth_tag)) {
 		log_libc(LLVL_FATAL, "encryption failed");

@@ -67,13 +67,13 @@ void print_syntax(const char *pgmname) {
 	fprintf(stderr, "                       manual key entry. This defaults to 5 tries.\n");
 	fprintf(stderr, "  -v, --verbose        Increase logging verbosity.\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "luksrku version: " LUKSRKU_VERSION "\n");
+	fprintf(stderr, "luksrku version: " BUILD_REVISION "\n");
 }
 
 static void set_default_arguments(struct options_t *options) {
 	memset(options, 0, sizeof(struct options_t));
-	
-	/* Default port :-) echo -n LUKS | md5sum | cut -c -5 */ 
+
+	/* Default port :-) echo -n LUKS | md5sum | cut -c -5 */
 	options->port = 23170;
 
 	/* Default, overwritten later by fill_default_arguments() */
@@ -84,7 +84,7 @@ static void set_default_arguments(struct options_t *options) {
 }
 
 static void fill_default_arguments(struct options_t *options) {
-	/* Set default unlock count */ 
+	/* Set default unlock count */
 	if (options->unlock_cnt == -1) {
 		if (options->mode == CLIENT_MODE) {
 			options->unlock_cnt = 1;
@@ -99,7 +99,7 @@ static bool check_arguments(const struct options_t *options) {
 		fprintf(stderr, "Must specify client or server mode.\n");
 		return false;
 	}
-	
+
 	if (options->keydbfile == NULL) {
 		fprintf(stderr, "Must specify a key database file.\n");
 		return false;
@@ -140,32 +140,32 @@ bool parse_cmdline_arguments(struct options_t *options, int argc, char **argv) {
 			case 'v':
 				options->verbose = true;
 				break;
-			
+
 			case LONGOPT_MODE_SERVER:
 			case 's':
 				options->mode = SERVER_MODE;
 				break;
-			
+
 			case LONGOPT_MODE_CLIENT:
 			case 'c':
 				options->mode = CLIENT_MODE;
 				break;
-			
+
 			case LONGOPT_PORT:
 			case 'p':
 				options->port = atoi(optarg);
 				break;
-			
+
 			case LONGOPT_KEYDB:
 			case 'k':
 				options->keydbfile = optarg;
 				break;
-			
+
 			case LONGOPT_UNLOCK_CNT:
 			case 'u':
 				options->unlock_cnt = atoi(optarg);
 				break;
-	
+
 			case LONGOPT_MAX_BCAST_ERRS:
 				options->max_broadcast_errs = atoi(optarg);
 				break;

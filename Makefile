@@ -1,13 +1,15 @@
 .PHONY: all clean test testclient derive install
 all: luksrku luksrku-config
 
+BUILD_REVISION := $(shell git describe --abbrev=10 --dirty --always)
 INSTALL_PREFIX := /usr/local/
-CFLAGS := -std=c11 -Wall -Wextra -O2 -pthread -D_POSIX_SOURCE -D_XOPEN_SOURCE=500 -Wmissing-prototypes -Wstrict-prototypes -Wno-unused-parameter
+CFLAGS := -Wall -Wextra -Wshadow -Wswitch -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Werror=implicit-function-declaration -Werror=format -Wno-unused-parameter
+#CFLAGS := -Wall -Wextra -O2  -Wmissing-prototypes -Wstrict-prototypes
+CFLAGS += -std=c11 -pthread -D_POSIX_SOURCE -D_XOPEN_SOURCE=500 -DBUILD_REVISION='"$(BUILD_REVISION)"'
 #CFLAGS += -g -DDEBUG
-LDFLAGS := -lcrypto -lssl
-LDFLAGS += -L/usr/local/lib
-#LDFLAGS := -static $(LIBDIR)libssl.a $(LIBDIR)libcrypto.a
-#LDFLAGS := -static $(LIBDIR)libssl.a $(LIBDIR)libcrypto.a -ldl
+CFLAGS += `pkg-config --cflags openssl`
+
+LDFLAGS := `pkg-config --libs openssl`
 
 OBJS := luksrku.o server.o log.o openssl.o client.o keyfile.o msg.o binkeyfile.o util.o cmdline.o luks.o exec.o blacklist.o
 OBJS_CFG := luksrku-config.o keyfile.o binkeyfile.o parse-keyfile.o openssl.o log.o util.o
