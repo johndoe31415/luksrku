@@ -24,12 +24,56 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <openssl/crypto.h>
 #include <openssl/rand.h>
 #include <openssl/evp.h>
 #include "vault.h"
 
-struct vault_t * vault_init(void *inner_data, unsigned int data_length) {
+static bool vault_derive_key(const struct vault_t *vault, uint8_t key[static 32]) {
+	/* Derive the AES key from it */
+	if (PKCS5_PBKDF2_HMAC((char*)vault->key, vault->key_length, NULL, 0, vault->iteration_cnt, EVP_sha256(), 32, key) != 1) {
+		return false;
+	}
+	return true;
+}
+
+static double now(void) {
+	struct timeval tv;
+	if (gettimeofday(&tv, NULL) == 0) {
+		return tv.tv_sec + (1e-6 * tv.tv_usec);
+	} else {
+		return 0;
+	}
+}
+
+static double vault_measure_key_derivation_time(struct vault_t *vault, unsigned int new_iteration_count) {
+	uint8_t dkey[32];
+	double t0, t1;
+	vault->iteration_cnt = new_iteration_count;
+	t0 = now();
+	vault_derive_key(vault, dkey);
+	t1 = now();
+	OPENSSL_cleanse(dkey, sizeof(dkey));
+	return t1 - t0;
+}
+
+static void vault_calibrate_derivation_time(struct vault_t *vault, double target_derivation_time) {
+	unsigned int iteration_cnt = 1;
+	while (iteration_cnt < 100000000) {
+		double current_time = vault_measure_key_derivation_time(vault, iteration_cnt);
+//		fprintf(stderr, "%d: %f %f\n", iteration_cnt, current_time, target_derivation_time);
+		if (current_time * 10 < target_derivation_time) {
+			iteration_cnt *= 2;
+		} else if (current_time * 1.1 < target_derivation_time) {
+			iteration_cnt = iteration_cnt * target_derivation_time / current_time;
+		} else {
+			break;
+		}
+	}
+}
+
+struct vault_t* vault_init(unsigned int data_length, double target_derivation_time) {
 	struct vault_t *vault;
 
 	vault = calloc(1, sizeof(struct vault_t));
@@ -44,19 +88,14 @@ struct vault_t * vault_init(void *inner_data, unsigned int data_length) {
 		return NULL;
 	}
 
-	if (inner_data) {
-		vault->data = inner_data;
-		vault->free_data = false;
-	} else {
-		vault->free_data = true;
-		vault->data = malloc(data_length);
-		if (!vault->data) {
-			vault_free(vault);
-			return NULL;
-		}
+	vault->data = calloc(data_length, 1);
+	if (!vault->data) {
+		vault_free(vault);
+		return NULL;
 	}
 	vault->is_open = true;
 	vault->data_length = data_length;
+	vault_calibrate_derivation_time(vault, target_derivation_time);
 
 	return vault;
 }
@@ -70,21 +109,13 @@ static void vault_destroy_content(struct vault_t *vault) {
 	}
 }
 
-static bool vault_derive_key(const struct vault_t *vault, uint8_t key[static 32]) {
-	/* Derive the AES key from it */
-	if (PKCS5_PBKDF2_HMAC((char*)vault->key, vault->key_length, NULL, 0, VAULT_PBKDF2_ITERATIONS, EVP_sha256(), 32, key) != 1) {
-		return false;
-	}
-	return true;
-}
-
 bool vault_open(struct vault_t *vault) {
 	if (vault->is_open) {
 		return true;
 	}
 
-	uint8_t key[32];
-	if (!vault_derive_key(vault, key)) {
+	uint8_t dkey[32];
+	if (!vault_derive_key(vault, dkey)) {
 		return false;
 	}
 
@@ -105,7 +136,7 @@ bool vault_open(struct vault_t *vault) {
 			break;
 		}
 
-		if (EVP_DecryptInit_ex(ctx, NULL, NULL, key, (unsigned char*)&vault->iv) != 1) {
+		if (EVP_DecryptInit_ex(ctx, NULL, NULL, dkey, (unsigned char*)&vault->iv) != 1) {
 			success = false;
 			break;
 		}
@@ -138,7 +169,7 @@ bool vault_open(struct vault_t *vault) {
 	}
 
 	EVP_CIPHER_CTX_free(ctx);
-	OPENSSL_cleanse(key, sizeof(key));
+	OPENSSL_cleanse(dkey, sizeof(dkey));
 	return success;
 }
 
@@ -214,9 +245,7 @@ bool vault_close(struct vault_t *vault) {
 
 void vault_free(struct vault_t *vault) {
 	vault_destroy_content(vault);
-	if (vault->free_data) {
-		free(vault->data);
-	}
+	free(vault->data);
 	free(vault->key);
 	free(vault);
 }
@@ -233,19 +262,18 @@ static void dump(const uint8_t *data, unsigned int length) {
 int main(void) {
 	/* gcc -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -o vault vault.c -lasan -lubsan -lcrypto
 	 */
-	uint8_t data[64];
-	dump(data, sizeof(data));
-	struct vault_t *vault = vault_init(data, sizeof(data));
+	struct vault_t *vault = vault_init(64, 0.1);
+	dump(vault->data, vault->data_length);
 	if (!vault_close(vault)) {
 		fprintf(stderr, "vault close failed.\n");
 		abort();
 	}
-	dump(data, sizeof(data));
+	dump(vault->data, vault->data_length);
 	if (!vault_open(vault)) {
 		fprintf(stderr, "vault open failed.\n");
 		abort();
 	}
-	dump(data, sizeof(data));
+	dump(vault->data, vault->data_length);
 	vault_free(vault);
 	return 0;
 }
