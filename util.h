@@ -40,6 +40,7 @@ bool is_valid_uuid(const char *ascii_uuid);
 bool parse_uuid(uint8_t *uuid, const char *ascii_uuid);
 void sprintf_uuid(char *buffer, const uint8_t *uuid);
 void dump_uuid(FILE *f, const uint8_t *uuid);
+bool truncate_crlf(char *string);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif

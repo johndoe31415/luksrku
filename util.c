@@ -159,3 +159,16 @@ void dump_uuid(FILE *f, const uint8_t *uuid) {
 	fprintf(f, "%s", ascii_uuid);
 }
 
+bool truncate_crlf(char *string) {
+	int length = strlen(string);
+	bool truncated = false;
+	if (length && (string[length - 1] == '\n')) {
+		truncated = true;
+		string[--length] = 0;
+	}
+	if (length && (string[length - 1] == '\r')) {
+		truncated = true;
+		string[--length] = 0;
+	}
+	return truncated;
+}
