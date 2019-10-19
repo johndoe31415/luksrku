@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include "editor.h"
 #include "util.h"
+#include "keydb.h"
 
 #define MAX_COMMAND_ALIAS_COUNT			2
 
@@ -40,6 +41,7 @@ enum cmd_returncode_t {
 
 struct editor_context_t {
 	bool running;
+	struct keydb_t *keydb;
 };
 
 struct editor_command_t {
@@ -158,7 +160,11 @@ static enum cmd_returncode_t cmd_help(struct editor_context_t *ctx, const char *
 }
 
 static enum cmd_returncode_t cmd_new(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
-	return COMMAND_SUCCESS;
+	if (ctx->keydb) {
+		keydb_free(ctx->keydb);
+	}
+	ctx->keydb = keydb_new();
+	return (ctx->keydb != NULL) ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
 
 static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
@@ -166,7 +172,17 @@ static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *
 }
 
 static enum cmd_returncode_t cmd_add_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
-	return COMMAND_SUCCESS;
+	if (!ctx->keydb) {
+		ctx->keydb = keydb_new();
+		if (!ctx->keydb) {
+			return COMMAND_FAILURE;
+		}
+	}
+	struct keydb_t *new_keydb = keydb_add_host(ctx->keydb, params[0]);
+	if (new_keydb) {
+		ctx->keydb = new_keydb;
+	}
+	return new_keydb ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
 
 static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
@@ -182,11 +198,20 @@ static enum cmd_returncode_t cmd_showkey_volume(struct editor_context_t *ctx, co
 }
 
 static enum cmd_returncode_t cmd_open(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
-	return COMMAND_SUCCESS;
+	if (ctx->keydb) {
+		keydb_free(ctx->keydb);
+	}
+	ctx->keydb = keydb_read(params[0]);
+	return (ctx->keydb != NULL) ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
 
 static enum cmd_returncode_t cmd_save(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
-	return COMMAND_SUCCESS;
+	if (!ctx->keydb) {
+		fprintf(stderr, "No key database loaded.\n");
+		return COMMAND_FAILURE;
+	}
+	bool success = keydb_write(ctx->keydb, params[0], "foobar");
+	return success ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
 
 static const struct editor_command_t *find_command(const char *command_name) {
@@ -274,6 +299,10 @@ void editor_start(void) {
 				printf("Too many parameters: \"%s\" requires at most %d parameters -- %s\n", command_name, command->max_params, formatted_cmd);
 			}
 		}
+	}
+
+	if (editor_context.keydb) {
+		keydb_free(editor_context.keydb);
 	}
 }
 

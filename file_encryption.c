@@ -423,6 +423,7 @@ bool write_encrypted_file(const char *filename, const void *plaintext, unsigned 
 	if (RAND_bytes(encrypted_file->iv, ENCRYPTED_FILE_IV_SIZE) != 1) {
 		log_openssl(LLVL_FATAL, "Failed to get entropy from RAND_bytes for IV");
 		OPENSSL_cleanse(&key, sizeof(key));
+		free(encrypted_file);
 		return false;
 	}
 
@@ -430,6 +431,7 @@ bool write_encrypted_file(const char *filename, const void *plaintext, unsigned 
 	if (!encrypt_aes256_gcm(plaintext, plaintext_length, key.key, encrypted_file->iv, encrypted_file->ciphertext, encrypted_file->auth_tag)) {
 		log_libc(LLVL_FATAL, "encryption failed");
 		OPENSSL_cleanse(&key, sizeof(key));
+		free(encrypted_file);
 		return false;
 	}
 
@@ -451,5 +453,6 @@ bool write_encrypted_file(const char *filename, const void *plaintext, unsigned 
 		return false;
 	}
 
+	free(encrypted_file);
 	return success;
 }
