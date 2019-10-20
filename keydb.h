@@ -34,7 +34,6 @@
 
 struct volume_entry_t {
 	uint8_t volume_uuid[16];									/* UUID of crypt_LUKS volume */
-	char volume_name[MAX_DESCRIPTION_LENGTH + 1];				/* Descriptive name of volume */
 	char devmapper_name[MAX_DEVMAPPER_NAME_LENGTH + 1];			/* dmsetup name when unlocked. Zero-terminated string. */
 	uint8_t luks_passphrase[PASSPHRASE_SIZE_BYTES];				/* LUKS passphrase used to unlock volume; raw byte data */
 };

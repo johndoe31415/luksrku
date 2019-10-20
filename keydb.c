@@ -81,14 +81,14 @@ struct keydb_t* keydb_read(const char *filename) {
 
 	struct keydb_t *keydb = (struct keydb_t*)decrypted_file.data;
 	if (keydb->keydb_version != KEYDB_VERSION) {
-		log_msg(LLVL_ERROR, "keydb in %s could be read, but is of version %u (we expected %u).\n", keydb->keydb_version, KEYDB_VERSION);
+		log_msg(LLVL_ERROR, "keydb in %s could be read, but is of version %u (we expected %u).", keydb->keydb_version, KEYDB_VERSION);
 		OPENSSL_cleanse(decrypted_file.data, decrypted_file.data_length);
 		free(decrypted_file.data);
 		return NULL;
 	}
 
 	if (decrypted_file.data_length != keydb_getsize(keydb)) {
-		log_msg(LLVL_ERROR, "keydb in %s could be read, but was %u bytes long (we expected %u).\n", decrypted_file.data_length, keydb_getsize(keydb));
+		log_msg(LLVL_ERROR, "keydb in %s could be read, but was %u bytes long (we expected %u).", decrypted_file.data_length, keydb_getsize(keydb));
 		OPENSSL_cleanse(decrypted_file.data, decrypted_file.data_length);
 		free(decrypted_file.data);
 		return NULL;

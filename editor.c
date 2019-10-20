@@ -29,6 +29,7 @@
 #include "editor.h"
 #include "util.h"
 #include "keydb.h"
+#include "uuid.h"
 
 #define MAX_COMMAND_ALIAS_COUNT			2
 
@@ -168,6 +169,22 @@ static enum cmd_returncode_t cmd_new(struct editor_context_t *ctx, const char *c
 }
 
 static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	if (!ctx->keydb) {
+		printf("No key database loaded.\n");
+		return COMMAND_FAILURE;
+	}
+	printf("Keydb version %d, %s database, %d hosts.\n", ctx->keydb->keydb_version, ctx->keydb->server_database ? "server" : "client", ctx->keydb->host_count);
+	for (unsigned int i = 0; i < ctx->keydb->host_count; i++) {
+		const struct host_entry_t *host = &ctx->keydb->hosts[i];
+		char uuid[48];
+		sprintf_uuid(uuid, host->host_uuid);
+		printf("    Host %d: \"%s\" UUID %s -- %d volumes:\n", i + 1, host->host_name, uuid, host->volume_count);
+		for (unsigned int j = 0; j < host->volume_count; j++) {
+			const struct volume_entry_t *volume = &host->volumes[j];
+			sprintf_uuid(uuid, volume->volume_uuid);
+			printf("        Volume %d: \"%s\" UUID %s\n", j + 1, volume->devmapper_name, uuid);
+		}
+	}
 	return COMMAND_SUCCESS;
 }
 
