@@ -110,7 +110,7 @@ static const struct editor_command_t commands[] = {
 		.param_names = "[hostname] [volumename]",
 		.min_params = 2,
 		.max_params = 2,
-		.description = "Re-keys a volume of a given hostname",
+		.description = "Re-keys the LUKS passphrase of a volume of a given hostname",
 	},
 	{
 		.cmdnames = { "showkey_volume" },
@@ -118,7 +118,7 @@ static const struct editor_command_t commands[] = {
 		.param_names = "[hostname] [volumename]",
 		.min_params = 2,
 		.max_params = 2,
-		.description = "Shows the key of a volume of a hostname",
+		.description = "Shows the LUKS passphrase of a volume of a hostname",
 	},
 	{
 		.cmdnames = { "open", "load" },
@@ -200,7 +200,27 @@ static enum cmd_returncode_t cmd_add_host(struct editor_context_t *ctx, const ch
 }
 
 static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
-	return COMMAND_SUCCESS;
+	if (!ctx->keydb) {
+		fprintf(stderr, "No key database loaded.\n");
+		return COMMAND_FAILURE;
+	}
+
+	const char *host_name = params[0];
+	struct host_entry_t *host = keydb_get_host_by_name(ctx->keydb, host_name);
+	if (!host) {
+		fprintf(stderr, "No such host: %s\n", host_name);
+		return COMMAND_FAILURE;
+	}
+
+	const char *volume_name = params[1];
+	const char *volume_uuid_str = params[2];
+	if (!is_valid_uuid(volume_uuid_str)) {
+		fprintf(stderr, "Not a valid UUID: %s\n", volume_uuid_str);
+		return COMMAND_FAILURE;
+	}
+	uint8_t volume_uuid[16];
+	parse_uuid(volume_uuid, volume_uuid_str);
+	return keydb_add_volume(host, volume_name, volume_uuid) ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
 
 static enum cmd_returncode_t cmd_rekey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
@@ -208,6 +228,20 @@ static enum cmd_returncode_t cmd_rekey_volume(struct editor_context_t *ctx, cons
 }
 
 static enum cmd_returncode_t cmd_showkey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	const char *host_name = params[0];
+	struct host_entry_t *host = keydb_get_host_by_name(ctx->keydb, host_name);
+	if (!host) {
+		fprintf(stderr, "No such host: %s\n", host_name);
+		return COMMAND_FAILURE;
+	}
+
+	const char *volume_name = params[1];
+	struct volume_entry_t *volume = keydb_get_volume_by_name(host, volume_name);
+	if (!volume) {
+		fprintf(stderr, "No such volume: %s\n", volume_name);
+		return COMMAND_FAILURE;
+	}
+
 	return COMMAND_SUCCESS;
 }
 

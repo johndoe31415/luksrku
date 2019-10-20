@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdbool.h>
 #include <openssl/crypto.h>
 
@@ -52,8 +53,13 @@ void keydb_free(struct keydb_t *keydb) {
 	free(keydb);
 }
 
-bool keydb_add_host(struct keydb_t **keydb, const char *hostname) {
+bool keydb_add_host(struct keydb_t **keydb, const char *host_name) {
 	struct keydb_t *old_keydb = *keydb;
+	if (keydb_get_host_by_name(old_keydb, host_name)) {
+		log_msg(LLVL_ERROR, "Host name \"%s\" already present in key database.", host_name);
+		return false;
+	}
+
 	struct keydb_t *new_keydb = realloc(old_keydb, keydb_getsize_hostcount(old_keydb->host_count + 1));
 	if (!new_keydb) {
 		return false;
@@ -66,7 +72,7 @@ bool keydb_add_host(struct keydb_t **keydb, const char *hostname) {
 		/* We keep the reallocation but do not increase the host count */
 		return false;
 	}
-	strncpy(host->host_name, hostname, sizeof(host->host_name) - 1);
+	strncpy(host->host_name, host_name, sizeof(host->host_name) - 1);
 	if (!buffer_randomize(host->tls_psk, sizeof(host->tls_psk))) {
 		/* We keep the reallocation but do not increase the host count */
 		return false;
@@ -74,6 +80,61 @@ bool keydb_add_host(struct keydb_t **keydb, const char *hostname) {
 
 	new_keydb->host_count++;
 	return true;
+}
+
+bool keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]) {
+	if (host->volume_count == MAX_VOLUMES_PER_HOST) {
+		log_msg(LLVL_ERROR, "Host \"%s\" already has maximum number of volumes (%d).", host->host_name, MAX_VOLUMES_PER_HOST);
+		return false;
+	}
+	if (keydb_get_volume_by_name(host, devmapper_name)) {
+		log_msg(LLVL_ERROR, "Volume name \"%s\" already present for host \"%s\" entry.", devmapper_name, host->host_name);
+		return false;
+	}
+
+	struct volume_entry_t *volume = &host->volumes[host->volume_count];
+	memcpy(volume->volume_uuid, volume_uuid, 16);
+	strncpy(volume->devmapper_name, devmapper_name, sizeof(volume->devmapper_name) - 1);
+	if (!buffer_randomize(volume->luks_passphrase, sizeof(volume->luks_passphrase))) {
+		log_msg(LLVL_ERROR, "Failed to produce %d bytes of entropy for LUKS passphrase.", sizeof(volume->luks_passphrase));
+		return false;
+	}
+	host->volume_count++;
+	return true;
+}
+
+int keydb_get_volume_index_by_name(struct host_entry_t *host, const char *devmapper_name) {
+	for (unsigned int i = 0; i < host->volume_count; i++) {
+		struct volume_entry_t *volume = &host->volumes[i];
+		if (!strcasecmp(volume->devmapper_name, devmapper_name)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+struct volume_entry_t *keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name) {
+	const int index = keydb_get_volume_index_by_name(host, devmapper_name);
+	return (index >= 0) ? &host->volumes[index] : NULL;
+}
+
+int keydb_get_host_index_by_name(struct keydb_t *keydb, const char *host_name) {
+	for (unsigned int i = 0; i < keydb->host_count; i++) {
+		struct host_entry_t *host = &keydb->hosts[i];
+		if (!strcasecmp(host->host_name, host_name)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+bool keydb_get_volume_luks_passphrase(const struct volume_entry_t *volume, char *dest) {
+	return ascii_encode(dest, volume->luks_passphrase, sizeof(volume->luks_passphrase));
+}
+
+struct host_entry_t *keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name) {
+	const int index = keydb_get_host_index_by_name(keydb, host_name);
+	return (index >= 0) ? &keydb->hosts[index] : NULL;
 }
 
 bool keydb_write(const struct keydb_t *keydb, const char *filename, const char *passphrase) {

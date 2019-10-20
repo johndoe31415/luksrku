@@ -38,6 +38,8 @@ bool is_hex(const char *str, int length);
 int parse_hexstr(const char *hexstr, uint8_t *data, int maxlen);
 bool truncate_crlf(char *string);
 bool buffer_randomize(uint8_t *buffer, unsigned int length);
+bool array_remove(void *base, unsigned int element_length, unsigned int element_count, unsigned int remove_element_index);
+bool ascii_encode(char *dest, const uint8_t *source_data, unsigned int source_data_length);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif
