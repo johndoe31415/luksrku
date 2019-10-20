@@ -131,12 +131,13 @@ bool buffer_randomize(uint8_t *buffer, unsigned int length) {
 	FILE *f = fopen("/dev/urandom", "r");
 	if (!f) {
 		log_libc(LLVL_FATAL, "Failed to access /dev/urandom");
-		return NULL;
+		return false;
 	}
 	if (fread(buffer, length, 1, f) != 1) {
 		log_libc(LLVL_FATAL, "Error reading randomness from /dev/urandom");
 		fclose(f);
-		return NULL;
+		return false;
 	}
 	fclose(f);
+	return true;
 }

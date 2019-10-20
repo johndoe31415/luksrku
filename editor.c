@@ -195,11 +195,8 @@ static enum cmd_returncode_t cmd_add_host(struct editor_context_t *ctx, const ch
 			return COMMAND_FAILURE;
 		}
 	}
-	struct keydb_t *new_keydb = keydb_add_host(ctx->keydb, params[0]);
-	if (new_keydb) {
-		ctx->keydb = new_keydb;
-	}
-	return new_keydb ? COMMAND_SUCCESS : COMMAND_FAILURE;
+	bool success = keydb_add_host(&ctx->keydb, params[0]);
+	return success ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
 
 static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {

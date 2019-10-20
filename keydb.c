@@ -29,6 +29,7 @@
 
 #include "keydb.h"
 #include "util.h"
+#include "uuid.h"
 #include "log.h"
 
 static unsigned int keydb_getsize_hostcount(unsigned int host_count) {
@@ -51,15 +52,28 @@ void keydb_free(struct keydb_t *keydb) {
 	free(keydb);
 }
 
-struct keydb_t* keydb_add_host(struct keydb_t *keydb, const char *hostname) {
-	struct keydb_t *new_keydb = realloc(keydb, keydb_getsize_hostcount(keydb->host_count + 1));
+bool keydb_add_host(struct keydb_t **keydb, const char *hostname) {
+	struct keydb_t *old_keydb = *keydb;
+	struct keydb_t *new_keydb = realloc(old_keydb, keydb_getsize_hostcount(old_keydb->host_count + 1));
 	if (!new_keydb) {
-		return NULL;
+		return false;
+	}
+	*keydb = new_keydb;
+
+	struct host_entry_t *host = &new_keydb->hosts[new_keydb->host_count];
+	memset(host, 0, sizeof(struct host_entry_t));
+	if (!uuid_randomize(host->host_uuid)) {
+		/* We keep the reallocation but do not increase the host count */
+		return false;
+	}
+	strncpy(host->host_name, hostname, sizeof(host->host_name) - 1);
+	if (!buffer_randomize(host->tls_psk, sizeof(host->tls_psk))) {
+		/* We keep the reallocation but do not increase the host count */
+		return false;
 	}
 
-	memset(&new_keydb->hosts[new_keydb->host_count], 0, sizeof(struct host_entry_t));
 	new_keydb->host_count++;
-	return new_keydb;
+	return true;
 }
 
 bool keydb_write(const struct keydb_t *keydb, const char *filename, const char *passphrase) {

@@ -56,7 +56,7 @@ struct keydb_t {
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 struct keydb_t* keydb_new(void);
 void keydb_free(struct keydb_t *keydb);
-struct keydb_t* keydb_add_host(struct keydb_t *keydb, const char *hostname);
+bool keydb_add_host(struct keydb_t **keydb, const char *hostname);
 bool keydb_write(const struct keydb_t *keydb, const char *filename, const char *passphrase);
 struct keydb_t* keydb_read(const char *filename);
 /***************  AUTO GENERATED SECTION ENDS   ***************/

@@ -75,15 +75,10 @@ void dump_uuid(FILE *f, const uint8_t *uuid) {
 }
 
 bool uuid_randomize(uint8_t uuid[static 16]) {
-	FILE *f = fopen("/dev/urandom", "r");
-	if (!f) {
-		log_libc(LLVL_FATAL, "Failed to access /dev/urandom");
-		return NULL;
+	if (!buffer_randomize(uuid, 16)) {
+		return false;
 	}
-	if (fread(uuid, 16, 1, f) != 1) {
-		log_libc(LLVL_FATAL, "Error reading randomness from /dev/urandom");
-		fclose(f);
-		return NULL;
-	}
-	fclose(f);
+	uuid[6] = (uuid[6] & (~0xf0)) | 0x40;
+	uuid[8] = (uuid[8] & (~0xc0)) | 0x80;
+	return true;
 }

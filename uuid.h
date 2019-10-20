@@ -32,6 +32,7 @@ bool is_valid_uuid(const char *ascii_uuid);
 bool parse_uuid(uint8_t *uuid, const char *ascii_uuid);
 void sprintf_uuid(char *buffer, const uint8_t *uuid);
 void dump_uuid(FILE *f, const uint8_t *uuid);
+bool uuid_randomize(uint8_t uuid[static 16]);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif
