@@ -142,32 +142,43 @@ bool buffer_randomize(uint8_t *buffer, unsigned int length) {
 	return true;
 }
 
-bool array_remove(void *base, unsigned int element_length, unsigned int element_count, unsigned int remove_element_index) {
+bool array_remove(void *base, unsigned int element_size, unsigned int element_count, unsigned int remove_element_index) {
 	if (remove_element_index >= element_count) {
 		return false;
 	}
 	uint8_t *bytebase = (uint8_t*)base;
-	const unsigned int destination_offset = remove_element_index * element_length;
-	const unsigned int source_offset = (remove_element_index + 1) * element_length;
-	const unsigned int copy_length = ((element_count - 1) - remove_element_index) * element_length;
+	const unsigned int destination_offset = remove_element_index * element_size;
+	const unsigned int source_offset = (remove_element_index + 1) * element_size;
+	const unsigned int copy_length = ((element_count - 1) - remove_element_index) * element_size;
 	if (copy_length) {
 		memcpy(bytebase + destination_offset, bytebase + source_offset, copy_length);
 	}
+
+	/* Then, wipe the last element */
+	const unsigned int last_element_offset = element_size * (element_count - 1);
+	memset(base + last_element_offset, 0, element_size);
 	return true;
 }
 
-bool ascii_encode(char *dest, unsigned int dest_buffer_size, const uint8_t *source_data, unsigned int source_data_length) {
+static uint8_t get_array_value(const uint8_t *array, unsigned int array_length, unsigned int array_index) {
+	if (array_index < array_length) {
+		return array[array_index];
+	} else {
+		return 0;
+	}
+}
 
-	const char *alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_+";
-	if ((source_data_length % 4) != 0) {
-		log_libc(LLVL_FATAL, "Can only encode binary data of which length is divisible by four, %d is not.", source_data_length);
+bool ascii_encode(char *dest, unsigned int dest_buffer_size, const uint8_t *source_data, unsigned int source_data_length) {
+	const unsigned int require_dest_size = ((source_data_length + 2) / 3) * 4 + 1;
+	if (dest_buffer_size < require_dest_size) {
+		log_msg(LLVL_FATAL, "Encoding of %d bytes takes a %d byte buffer, but only %d bytes provided.", source_data_length, require_dest_size, dest_buffer_size);
 		return false;
 	}
-	const unsigned int require_dest_size = source_data_length / 4
 
+	const char *alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	for (unsigned int i = 0; i < source_data_length; i += 3) {
-		uint32_t word = (source_data[i + 0] << 0) | (source_data[i + 1] << 8) | (source_data[i + 2] << 16);
-		for (unsigned int shift = 0; shift < 24; shift += 6) {
+		uint32_t word = ((get_array_value(source_data, source_data_length, i + 0) << 16) | (get_array_value(source_data, source_data_length, i + 1) << 8) | (get_array_value(source_data, source_data_length, i + 2) << 0));
+		for (int shift = 18; shift >= 0; shift -= 6) {
 			*dest++ = alphabet[(word >> shift) & 0x3f];
 		}
 	}

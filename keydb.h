@@ -56,13 +56,15 @@ struct keydb_t {
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 struct keydb_t* keydb_new(void);
 void keydb_free(struct keydb_t *keydb);
-bool keydb_add_host(struct keydb_t **keydb, const char *host_name);
-bool keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]);
-int keydb_get_volume_index_by_name(struct host_entry_t *host, const char *devmapper_name);
 struct volume_entry_t *keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name);
-int keydb_get_host_index_by_name(struct keydb_t *keydb, const char *host_name);
-bool keydb_get_volume_luks_passphrase(const struct volume_entry_t *volume, char *dest);
 struct host_entry_t *keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name);
+bool keydb_add_host(struct keydb_t **keydb, const char *host_name);
+bool keydb_del_host_by_name(struct keydb_t **keydb, const char *host_name);
+bool keydb_rekey_host(struct host_entry_t *host);
+bool keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]);
+bool keydb_del_volume(struct host_entry_t *host, const char *devmapper_name);
+bool keydb_rekey_volume(struct volume_entry_t *volume);
+bool keydb_get_volume_luks_passphrase(const struct volume_entry_t *volume, char *dest, unsigned int dest_buffer_size);
 bool keydb_write(const struct keydb_t *keydb, const char *filename, const char *passphrase);
 struct keydb_t* keydb_read(const char *filename);
 /***************  AUTO GENERATED SECTION ENDS   ***************/

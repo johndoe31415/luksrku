@@ -26,6 +26,7 @@
 #include <string.h>
 #include <strings.h>
 #include <stdbool.h>
+#include <openssl/crypto.h>
 #include "editor.h"
 #include "util.h"
 #include "keydb.h"
@@ -58,7 +59,10 @@ static enum cmd_returncode_t cmd_help(struct editor_context_t *ctx, const char *
 static enum cmd_returncode_t cmd_new(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_add_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
+static enum cmd_returncode_t cmd_del_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
+static enum cmd_returncode_t cmd_rekey_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
+static enum cmd_returncode_t cmd_del_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_rekey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_showkey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_open(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
@@ -90,24 +94,40 @@ static const struct editor_command_t commands[] = {
 	},
 	{
 		.cmdnames = { "del_host" },
-		.callback = cmd_add_host,
+		.callback = cmd_del_host,
 		.param_names = "[hostname]",
 		.min_params = 1,
 		.max_params = 1,
 		.description = "Removes a host from the database file",
 	},
 	{
+		.cmdnames = { "rekey_host" },
+		.callback = cmd_rekey_host,
+		.param_names = "[hostname]",
+		.min_params = 1,
+		.max_params = 1,
+		.description = "Re-keys the TLS PSK of a given host",
+	},
+	{
 		.cmdnames = { "add_volume" },
 		.callback = cmd_add_volume,
-		.param_names = "[hostname] [volumename] [volume-UUID]",
+		.param_names = "[hostname] [devmappername] [volume-UUID]",
 		.min_params = 3,
 		.max_params = 3,
 		.description = "Add a new volume to the hostname",
 	},
 	{
+		.cmdnames = { "del_volume" },
+		.callback = cmd_del_volume,
+		.param_names = "[hostname] [devmappername]",
+		.min_params = 2,
+		.max_params = 2,
+		.description = "Removes a volume from the given host",
+	},
+	{
 		.cmdnames = { "rekey_volume" },
 		.callback = cmd_rekey_volume,
-		.param_names = "[hostname] [volumename]",
+		.param_names = "[hostname] [devmappername]",
 		.min_params = 2,
 		.max_params = 2,
 		.description = "Re-keys the LUKS passphrase of a volume of a given hostname",
@@ -115,7 +135,7 @@ static const struct editor_command_t commands[] = {
 	{
 		.cmdnames = { "showkey_volume" },
 		.callback = cmd_showkey_volume,
-		.param_names = "[hostname] [volumename]",
+		.param_names = "[hostname] [devmappername]",
 		.min_params = 2,
 		.max_params = 2,
 		.description = "Shows the LUKS passphrase of a volume of a hostname",
@@ -195,24 +215,78 @@ static enum cmd_returncode_t cmd_add_host(struct editor_context_t *ctx, const ch
 			return COMMAND_FAILURE;
 		}
 	}
-	bool success = keydb_add_host(&ctx->keydb, params[0]);
+	const char *host_name = params[0];
+	bool success = keydb_add_host(&ctx->keydb, host_name);
 	return success ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
 
-static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+static enum cmd_returncode_t cmd_del_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
 	if (!ctx->keydb) {
 		fprintf(stderr, "No key database loaded.\n");
 		return COMMAND_FAILURE;
 	}
 
 	const char *host_name = params[0];
+	bool success = keydb_del_host_by_name(&ctx->keydb, host_name);
+	return success ? COMMAND_SUCCESS : COMMAND_FAILURE;
+}
+
+static struct host_entry_t* cmd_gethost(struct editor_context_t *ctx, const char *host_name) {
+	if (!ctx->keydb) {
+		fprintf(stderr, "No key database loaded.\n");
+		return NULL;
+	}
 	struct host_entry_t *host = keydb_get_host_by_name(ctx->keydb, host_name);
 	if (!host) {
 		fprintf(stderr, "No such host: %s\n", host_name);
+		return NULL;
+	}
+	return host;
+}
+
+static struct volume_entry_t* cmd_getvolume(struct editor_context_t *ctx, const char *host_name, const char *devmapper_name) {
+	struct host_entry_t *host = cmd_gethost(ctx, host_name);
+	if (!host) {
+		return NULL;
+	}
+
+	struct volume_entry_t *volume = keydb_get_volume_by_name(host, devmapper_name);
+	if (!volume) {
+		fprintf(stderr, "No such volume \"%s\" for host \"%s\"\n", devmapper_name, host_name);
+		return NULL;
+	}
+	return volume;
+}
+
+static enum cmd_returncode_t cmd_rekey_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	const char *host_name = params[0];
+	struct host_entry_t *host = cmd_gethost(ctx, host_name);
+	return host && keydb_rekey_host(host) ? COMMAND_SUCCESS : COMMAND_FAILURE;
+}
+
+static enum cmd_returncode_t cmd_do_showkey_volume(struct volume_entry_t *volume) {
+	char luks_passphrase[PASSPHRASE_TEXT_SIZE_BYTES];
+	if (!keydb_get_volume_luks_passphrase(volume, luks_passphrase, sizeof(luks_passphrase))) {
+		OPENSSL_cleanse(luks_passphrase, sizeof(luks_passphrase));
+		fprintf(stderr, "Could not determine LUKS passphrase.\n");
+		return COMMAND_FAILURE;
+	}
+	char uuid[ASCII_UUID_BUFSIZE];
+	sprintf_uuid(uuid, volume->volume_uuid);
+	printf("LUKS passphrase of %s / %s: %s\n", volume->devmapper_name, uuid, luks_passphrase);
+
+	OPENSSL_cleanse(luks_passphrase, sizeof(luks_passphrase));
+	return COMMAND_SUCCESS;
+}
+
+static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	const char *host_name = params[0];
+	struct host_entry_t *host = cmd_gethost(ctx, host_name);
+	if (!host) {
 		return COMMAND_FAILURE;
 	}
 
-	const char *volume_name = params[1];
+	const char *devmapper_name = params[1];
 	const char *volume_uuid_str = params[2];
 	if (!is_valid_uuid(volume_uuid_str)) {
 		fprintf(stderr, "Not a valid UUID: %s\n", volume_uuid_str);
@@ -220,29 +294,52 @@ static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const 
 	}
 	uint8_t volume_uuid[16];
 	parse_uuid(volume_uuid, volume_uuid_str);
-	return keydb_add_volume(host, volume_name, volume_uuid) ? COMMAND_SUCCESS : COMMAND_FAILURE;
+	if (keydb_add_volume(host, devmapper_name, volume_uuid)) {
+		struct volume_entry_t *volume = cmd_getvolume(ctx, host_name, devmapper_name);
+		return cmd_do_showkey_volume(volume);
+	} else {
+		return COMMAND_FAILURE;
+	}
+}
+
+static enum cmd_returncode_t cmd_del_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	const char *host_name = params[0];
+	const char *devmapper_name = params[1];
+
+	struct host_entry_t *host = cmd_gethost(ctx, host_name);
+	if (!host) {
+		return COMMAND_FAILURE;
+	}
+	if (!keydb_del_volume(host, devmapper_name)) {
+		return COMMAND_FAILURE;
+	}
+	return COMMAND_SUCCESS;
 }
 
 static enum cmd_returncode_t cmd_rekey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
-	return COMMAND_SUCCESS;
+	const char *host_name = params[0];
+	const char *devmapper_name = params[1];
+
+	struct volume_entry_t *volume = cmd_getvolume(ctx, host_name, devmapper_name);
+	if (!volume) {
+		return COMMAND_FAILURE;
+	}
+	if (!keydb_rekey_volume(volume)) {
+		return COMMAND_FAILURE;
+	}
+	return cmd_do_showkey_volume(volume);
 }
 
 static enum cmd_returncode_t cmd_showkey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
 	const char *host_name = params[0];
-	struct host_entry_t *host = keydb_get_host_by_name(ctx->keydb, host_name);
-	if (!host) {
-		fprintf(stderr, "No such host: %s\n", host_name);
-		return COMMAND_FAILURE;
-	}
+	const char *devmapper_name = params[1];
 
-	const char *volume_name = params[1];
-	struct volume_entry_t *volume = keydb_get_volume_by_name(host, volume_name);
+	struct volume_entry_t *volume = cmd_getvolume(ctx, host_name, devmapper_name);
 	if (!volume) {
-		fprintf(stderr, "No such volume: %s\n", volume_name);
 		return COMMAND_FAILURE;
 	}
 
-	return COMMAND_SUCCESS;
+	return cmd_do_showkey_volume(volume);
 }
 
 static enum cmd_returncode_t cmd_open(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
@@ -355,7 +452,7 @@ void editor_start(void) {
 }
 
 #ifndef __TEST_EDITOR__
-// gcc -D_POSIX_SOURCE -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -o editor editor.c util.c log.c keydb.c file_encryption.c -lasan -lubsan -lcrypto && ./editor
+// gcc -O3 -ggdb3 -D_POSIX_SOURCE -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -o editor editor.c util.c log.c keydb.c file_encryption.c uuid.c -lcrypto && ./editor
 
 
 int main(int argc, char **argv) {

@@ -27,6 +27,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* Already includes zero termination */
+#define ASCII_UUID_BUFSIZE			37
+
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 bool is_valid_uuid(const char *ascii_uuid);
 bool parse_uuid(uint8_t *uuid, const char *ascii_uuid);

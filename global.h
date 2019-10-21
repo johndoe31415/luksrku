@@ -39,6 +39,9 @@
 /* How long a passphrase is (this is raw binary, not text) */
 #define PASSPHRASE_SIZE_BYTES								32
 
+/* How long a passphrase is in it's encoded form, storing it as a character array */
+#define PASSPHRASE_TEXT_SIZE_BYTES							((((PASSPHRASE_SIZE_BYTES + 2) / 3) * 4) + 1)
+
 /* How long in characters a cryptsetup device name mapping may be */
 #define MAX_DEVMAPPER_NAME_LENGTH							63
 

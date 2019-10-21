@@ -53,6 +53,36 @@ void keydb_free(struct keydb_t *keydb) {
 	free(keydb);
 }
 
+static int keydb_get_volume_index_by_name(struct host_entry_t *host, const char *devmapper_name) {
+	for (unsigned int i = 0; i < host->volume_count; i++) {
+		struct volume_entry_t *volume = &host->volumes[i];
+		if (!strcasecmp(volume->devmapper_name, devmapper_name)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static int keydb_get_host_index_by_name(struct keydb_t *keydb, const char *host_name) {
+	for (unsigned int i = 0; i < keydb->host_count; i++) {
+		struct host_entry_t *host = &keydb->hosts[i];
+		if (!strcasecmp(host->host_name, host_name)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+struct volume_entry_t *keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name) {
+	const int index = keydb_get_volume_index_by_name(host, devmapper_name);
+	return (index >= 0) ? &host->volumes[index] : NULL;
+}
+
+struct host_entry_t *keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name) {
+	const int index = keydb_get_host_index_by_name(keydb, host_name);
+	return (index >= 0) ? &keydb->hosts[index] : NULL;
+}
+
 bool keydb_add_host(struct keydb_t **keydb, const char *host_name) {
 	struct keydb_t *old_keydb = *keydb;
 	if (keydb_get_host_by_name(old_keydb, host_name)) {
@@ -73,13 +103,31 @@ bool keydb_add_host(struct keydb_t **keydb, const char *host_name) {
 		return false;
 	}
 	strncpy(host->host_name, host_name, sizeof(host->host_name) - 1);
-	if (!buffer_randomize(host->tls_psk, sizeof(host->tls_psk))) {
+	if (!keydb_rekey_host(host)) {
 		/* We keep the reallocation but do not increase the host count */
 		return false;
 	}
 
 	new_keydb->host_count++;
 	return true;
+}
+
+bool keydb_del_host_by_name(struct keydb_t **keydb, const char *host_name) {
+	struct keydb_t *old_keydb = *keydb;
+	int host_index = keydb_get_host_index_by_name(old_keydb, host_name);
+	if (host_index == -1) {
+		log_msg(LLVL_ERROR, "No such host: \"%s\"", host_name);
+		return false;
+	}
+
+	/* We keep the memory for now and do not realloc */
+	array_remove(old_keydb->hosts, sizeof(struct host_entry_t), old_keydb->host_count, host_index);
+	old_keydb->host_count--;
+	return true;
+}
+
+bool keydb_rekey_host(struct host_entry_t *host) {
+	return buffer_randomize(host->tls_psk, sizeof(host->tls_psk));
 }
 
 bool keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]) {
@@ -103,38 +151,26 @@ bool keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, con
 	return true;
 }
 
-int keydb_get_volume_index_by_name(struct host_entry_t *host, const char *devmapper_name) {
-	for (unsigned int i = 0; i < host->volume_count; i++) {
-		struct volume_entry_t *volume = &host->volumes[i];
-		if (!strcasecmp(volume->devmapper_name, devmapper_name)) {
-			return i;
-		}
+bool keydb_del_volume(struct host_entry_t *host, const char *devmapper_name) {
+	int index = keydb_get_volume_index_by_name(host, devmapper_name);
+	if (index == -1) {
+		log_msg(LLVL_ERROR, "No such volume \"%s\" for host \"%s\".", devmapper_name, host->host_name);
+		return false;
 	}
-	return -1;
-}
-
-struct volume_entry_t *keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name) {
-	const int index = keydb_get_volume_index_by_name(host, devmapper_name);
-	return (index >= 0) ? &host->volumes[index] : NULL;
-}
-
-int keydb_get_host_index_by_name(struct keydb_t *keydb, const char *host_name) {
-	for (unsigned int i = 0; i < keydb->host_count; i++) {
-		struct host_entry_t *host = &keydb->hosts[i];
-		if (!strcasecmp(host->host_name, host_name)) {
-			return i;
-		}
+	if (!array_remove(host->volumes, sizeof(struct volume_entry_t), host->volume_count, index)) {
+		log_msg(LLVL_ERROR, "Failed to remove \"%s\" of host \"%s\".", devmapper_name, host->host_name);
+		return false;
 	}
-	return -1;
+	host->volume_count--;
+	return true;
 }
 
-bool keydb_get_volume_luks_passphrase(const struct volume_entry_t *volume, char *dest) {
-	return ascii_encode(dest, volume->luks_passphrase, sizeof(volume->luks_passphrase));
+bool keydb_rekey_volume(struct volume_entry_t *volume) {
+	return buffer_randomize(volume->luks_passphrase, sizeof(volume->luks_passphrase));
 }
 
-struct host_entry_t *keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name) {
-	const int index = keydb_get_host_index_by_name(keydb, host_name);
-	return (index >= 0) ? &keydb->hosts[index] : NULL;
+bool keydb_get_volume_luks_passphrase(const struct volume_entry_t *volume, char *dest, unsigned int dest_buffer_size) {
+	return ascii_encode(dest, dest_buffer_size, volume->luks_passphrase, sizeof(volume->luks_passphrase));
 }
 
 bool keydb_write(const struct keydb_t *keydb, const char *filename, const char *passphrase) {
