@@ -44,6 +44,8 @@ enum cmd_returncode_t {
 struct editor_context_t {
 	bool running;
 	struct keydb_t *keydb;
+	char filename[MAX_FILENAME_LENGTH];
+	char passphrase[MAX_PASSPHRASE_LENGTH];
 };
 
 struct editor_command_t {
@@ -67,6 +69,10 @@ static enum cmd_returncode_t cmd_rekey_volume(struct editor_context_t *ctx, cons
 static enum cmd_returncode_t cmd_showkey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_open(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_save(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
+static enum cmd_returncode_t cmd_export(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
+#ifdef DEBUG
+static enum cmd_returncode_t cmd_rawdump(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
+#endif
 
 static const struct editor_command_t commands[] = {
 	{
@@ -80,7 +86,7 @@ static const struct editor_command_t commands[] = {
 		.description = "Create a new database file",
 	},
 	{
-		.cmdnames = { "list" },
+		.cmdnames = { "list", "l" },
 		.callback = cmd_list,
 		.description = "List contents of database file",
 	},
@@ -156,6 +162,23 @@ static const struct editor_command_t commands[] = {
 		.max_params = 1,
 		.description = "Saves a database file",
 	},
+	{
+		.cmdnames = { "export" },
+		.callback = cmd_export,
+		.param_names = "[hostname] [filename]",
+		.min_params = 2,
+		.max_params = 2,
+		.description = "Export a host database file for a specific host",
+	},
+#ifdef DEBUG
+	{
+		.cmdnames = { "rawdump", "raw" },
+		.callback = cmd_rawdump,
+		.min_params = 0,
+		.max_params = 0,
+		.description = "Dumps the raw representation of a file",
+	},
+#endif
 	{ { 0 } }
 };
 
@@ -185,6 +208,7 @@ static enum cmd_returncode_t cmd_new(struct editor_context_t *ctx, const char *c
 		keydb_free(ctx->keydb);
 	}
 	ctx->keydb = keydb_new();
+	memset(ctx->passphrase, 0, sizeof(ctx->passphrase));
 	return (ctx->keydb != NULL) ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
 
@@ -265,7 +289,7 @@ static enum cmd_returncode_t cmd_rekey_host(struct editor_context_t *ctx, const 
 }
 
 static enum cmd_returncode_t cmd_do_showkey_volume(struct volume_entry_t *volume) {
-	char luks_passphrase[PASSPHRASE_TEXT_SIZE_BYTES];
+	char luks_passphrase[LUKS_PASSPHRASE_TEXT_SIZE_BYTES];
 	if (!keydb_get_volume_luks_passphrase(volume, luks_passphrase, sizeof(luks_passphrase))) {
 		OPENSSL_cleanse(luks_passphrase, sizeof(luks_passphrase));
 		fprintf(stderr, "Could not determine LUKS passphrase.\n");
@@ -294,8 +318,8 @@ static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const 
 	}
 	uint8_t volume_uuid[16];
 	parse_uuid(volume_uuid, volume_uuid_str);
-	if (keydb_add_volume(host, devmapper_name, volume_uuid)) {
-		struct volume_entry_t *volume = cmd_getvolume(ctx, host_name, devmapper_name);
+	struct volume_entry_t *volume = keydb_add_volume(host, devmapper_name, volume_uuid);
+	if (volume) {
 		return cmd_do_showkey_volume(volume);
 	} else {
 		return COMMAND_FAILURE;
@@ -346,8 +370,14 @@ static enum cmd_returncode_t cmd_open(struct editor_context_t *ctx, const char *
 	if (ctx->keydb) {
 		keydb_free(ctx->keydb);
 	}
+	const char *filename = params[0];
 	ctx->keydb = keydb_read(params[0]);
-	return (ctx->keydb != NULL) ? COMMAND_SUCCESS : COMMAND_FAILURE;
+	if (ctx->keydb) {
+		strncpy(ctx->filename, filename, sizeof(ctx->filename) - 1);
+		return COMMAND_SUCCESS;
+	} else {
+		return COMMAND_FAILURE;
+	}
 }
 
 static enum cmd_returncode_t cmd_save(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
@@ -355,9 +385,76 @@ static enum cmd_returncode_t cmd_save(struct editor_context_t *ctx, const char *
 		fprintf(stderr, "No key database loaded.\n");
 		return COMMAND_FAILURE;
 	}
-	bool success = keydb_write(ctx->keydb, params[0], "foobar");
+	const char *filename = (param_cnt == 1) ? params[0] : ctx->filename;
+	if (strlen(filename) == 0) {
+		fprintf(stderr, "No filename given.\n");
+		return COMMAND_FAILURE;
+	}
+	if (param_cnt == 1) {
+		strncpy(ctx->filename, filename, sizeof(ctx->filename) - 1);
+	}
+
+	if (strlen(ctx->passphrase) == 0) {
+		if (!query_passphrase("Database passphrase: ", ctx->passphrase, sizeof(ctx->passphrase))) {
+			fprintf(stderr, "Failed to read passphrase.\n");
+			return COMMAND_FAILURE;
+		}
+	}
+	bool success = keydb_write(ctx->keydb, ctx->filename, ctx->passphrase);
 	return success ? COMMAND_SUCCESS : COMMAND_FAILURE;
 }
+
+static enum cmd_returncode_t cmd_export(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	const char *host_name = params[0];
+	const char *filename = params[1];
+	struct host_entry_t *host = cmd_gethost(ctx, host_name);
+	if (!host) {
+		return COMMAND_FAILURE;
+	}
+
+	struct keydb_t *pubdb = keydb_export_public(host);
+	char passphrase[MAX_PASSPHRASE_LENGTH];
+	if (!query_passphrase("Client passphrase: ", passphrase, sizeof(passphrase))) {
+		fprintf(stderr, "Failed to read export passphrase.\n");
+		keydb_free(pubdb);
+		return COMMAND_FAILURE;
+	}
+	if (!keydb_write(pubdb, filename, passphrase)) {
+		fprintf(stderr, "Failed to write export passphrase.\n");
+		keydb_free(pubdb);
+		return COMMAND_FAILURE;
+	}
+	keydb_free(pubdb);
+	return COMMAND_SUCCESS;
+}
+
+#ifdef DEBUG
+
+static enum cmd_returncode_t cmd_rawdump(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	if (!ctx->keydb) {
+		return COMMAND_SUCCESS;
+	}
+	fprintf(stderr, "Version %d, %s, %d hosts.\n", ctx->keydb->keydb_version, ctx->keydb->server_database ? "server" : "client", ctx->keydb->host_count);
+	for (unsigned int i = 0; i < ctx->keydb->host_count; i++) {
+		struct host_entry_t *host = &ctx->keydb->hosts[i];
+		fprintf(stderr, "Host %d:\n", i);
+		dump_hexline(stderr, "    host_uuid    ", host->host_uuid, sizeof(host->host_uuid), false);
+		dump_hexline(stderr, "    host_name    ", host->host_name, sizeof(host->host_name), true);
+		dump_hexline(stderr, "    tls_psk      ", host->tls_psk, sizeof(host->tls_psk), false);
+		fprintf(stderr, "    volume_count %u\n", host->volume_count);
+		for (unsigned int j = 0; j < MAX_VOLUMES_PER_HOST; j++) {
+			struct volume_entry_t *volume = &host->volumes[j];
+			if (!is_zero(volume, sizeof(struct volume_entry_t))) {
+				fprintf(stderr, "    Host %d / Volume %d:\n", i, j);
+				dump_hexline(stderr, "        volume_uuid     ", volume->volume_uuid, sizeof(volume->volume_uuid), false);
+				dump_hexline(stderr, "        devmapper_name  ", volume->devmapper_name, sizeof(volume->devmapper_name), true);
+				dump_hexline(stderr, "        luks_passphrase ", volume->luks_passphrase, sizeof(volume->luks_passphrase), false);
+			}
+		}
+	}
+	return COMMAND_SUCCESS;
+}
+#endif
 
 static const struct editor_command_t *find_command(const char *command_name) {
 	const struct editor_command_t *cmd = commands;
@@ -449,11 +546,11 @@ void editor_start(void) {
 	if (editor_context.keydb) {
 		keydb_free(editor_context.keydb);
 	}
+	OPENSSL_cleanse(&editor_context, sizeof(editor_context));
 }
 
 #ifndef __TEST_EDITOR__
-// gcc -O3 -ggdb3 -D_POSIX_SOURCE -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -o editor editor.c util.c log.c keydb.c file_encryption.c uuid.c -lcrypto && ./editor
-
+// gcc -O3 -ggdb3 -DDEBUG -D_POSIX_SOURCE -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -o editor editor.c util.c log.c keydb.c file_encryption.c uuid.c -lcrypto && ./editor
 
 int main(int argc, char **argv) {
 	editor_start();

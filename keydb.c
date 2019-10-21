@@ -48,15 +48,40 @@ struct keydb_t* keydb_new(void) {
 	return keydb;
 }
 
+struct keydb_t* keydb_export_public(struct host_entry_t *host) {
+	struct keydb_t *public_db = keydb_new();
+	if (!public_db) {
+		return NULL;
+	}
+	public_db->server_database = false;
+
+	if (!keydb_add_host(&public_db, host->host_name)) {
+		keydb_free(public_db);
+		return NULL;
+	}
+
+	/* Copy over whole entry */
+	struct host_entry_t *public_host = &public_db->hosts[0];
+	*public_host = *host;
+
+	/* But remove all LUKS passphrases of course, this is for the luksrku client */
+	for (unsigned int i = 0; i < host->volume_count; i++) {
+		struct volume_entry_t *volume = &public_host->volumes[i];
+		memset(volume->luks_passphrase, 0, sizeof(volume->luks_passphrase));
+	}
+
+	return public_db;
+}
+
 void keydb_free(struct keydb_t *keydb) {
-	memset(keydb, 0, keydb_getsize(keydb));
+	OPENSSL_cleanse(keydb, keydb_getsize(keydb));
 	free(keydb);
 }
 
 static int keydb_get_volume_index_by_name(struct host_entry_t *host, const char *devmapper_name) {
 	for (unsigned int i = 0; i < host->volume_count; i++) {
 		struct volume_entry_t *volume = &host->volumes[i];
-		if (!strcasecmp(volume->devmapper_name, devmapper_name)) {
+		if (!strncasecmp(volume->devmapper_name, devmapper_name, sizeof(volume->devmapper_name) - 1)) {
 			return i;
 		}
 	}
@@ -66,7 +91,7 @@ static int keydb_get_volume_index_by_name(struct host_entry_t *host, const char 
 static int keydb_get_host_index_by_name(struct keydb_t *keydb, const char *host_name) {
 	for (unsigned int i = 0; i < keydb->host_count; i++) {
 		struct host_entry_t *host = &keydb->hosts[i];
-		if (!strcasecmp(host->host_name, host_name)) {
+		if (!strncasecmp(host->host_name, host_name, sizeof(host->host_name) - 1)) {
 			return i;
 		}
 	}
@@ -84,6 +109,11 @@ struct host_entry_t *keydb_get_host_by_name(struct keydb_t *keydb, const char *h
 }
 
 bool keydb_add_host(struct keydb_t **keydb, const char *host_name) {
+	if (strlen(host_name) > MAX_HOST_NAME_LENGTH - 1) {
+		log_msg(LLVL_ERROR, "Host name \"%s\" exceeds maximum length of %d characters.", host_name, MAX_HOST_NAME_LENGTH - 1);
+		return false;
+	}
+
 	struct keydb_t *old_keydb = *keydb;
 	if (keydb_get_host_by_name(old_keydb, host_name)) {
 		log_msg(LLVL_ERROR, "Host name \"%s\" already present in key database.", host_name);
@@ -130,14 +160,19 @@ bool keydb_rekey_host(struct host_entry_t *host) {
 	return buffer_randomize(host->tls_psk, sizeof(host->tls_psk));
 }
 
-bool keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]) {
-	if (host->volume_count == MAX_VOLUMES_PER_HOST) {
-		log_msg(LLVL_ERROR, "Host \"%s\" already has maximum number of volumes (%d).", host->host_name, MAX_VOLUMES_PER_HOST);
+struct volume_entry_t* keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]) {
+	if (strlen(devmapper_name) > MAX_DEVMAPPER_NAME_LENGTH - 1) {
+		log_msg(LLVL_ERROR, "Device mapper name \"%s\" exceeds maximum length of %d characters.", devmapper_name, MAX_DEVMAPPER_NAME_LENGTH - 1);
 		return false;
+	}
+
+	if (host->volume_count >= MAX_VOLUMES_PER_HOST) {
+		log_msg(LLVL_ERROR, "Host \"%s\" already has maximum number of volumes (%d).", host->host_name, MAX_VOLUMES_PER_HOST);
+		return NULL;
 	}
 	if (keydb_get_volume_by_name(host, devmapper_name)) {
 		log_msg(LLVL_ERROR, "Volume name \"%s\" already present for host \"%s\" entry.", devmapper_name, host->host_name);
-		return false;
+		return NULL;
 	}
 
 	struct volume_entry_t *volume = &host->volumes[host->volume_count];
@@ -145,10 +180,10 @@ bool keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, con
 	strncpy(volume->devmapper_name, devmapper_name, sizeof(volume->devmapper_name) - 1);
 	if (!buffer_randomize(volume->luks_passphrase, sizeof(volume->luks_passphrase))) {
 		log_msg(LLVL_ERROR, "Failed to produce %d bytes of entropy for LUKS passphrase.", sizeof(volume->luks_passphrase));
-		return false;
+		return NULL;
 	}
 	host->volume_count++;
-	return true;
+	return volume;
 }
 
 bool keydb_del_volume(struct host_entry_t *host, const char *devmapper_name) {
@@ -179,13 +214,17 @@ bool keydb_write(const struct keydb_t *keydb, const char *filename, const char *
 		/* For empty password, we can also use garbage KDF */
 		kdf = KDF_PBKDF2_SHA256_1000;
 	} else {
-		kdf = KDF_SCRYPT_N17_r8_p1;
+		kdf = ENCRYPTED_FILE_DEFAULT_KDF;
 	}
 	return write_encrypted_file(filename, keydb, keydb_getsize(keydb), passphrase, kdf);
 }
 
+static bool passphrase_callback(char *buffer, unsigned int bufsize) {
+	return query_passphrase("Database passphrase: ", buffer, bufsize);
+}
+
 struct keydb_t* keydb_read(const char *filename) {
-	struct decrypted_file_t decrypted_file = read_encrypted_file(filename);
+	struct decrypted_file_t decrypted_file = read_encrypted_file(filename, passphrase_callback);
 	if (!decrypted_file.success) {
 		return NULL;
 	}

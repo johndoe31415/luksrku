@@ -31,14 +31,16 @@
 #define PRINTF_FORMAT_IP(saddrptr)		(saddrptr->sin_addr.s_addr >> 0) & 0xff, (saddrptr->sin_addr.s_addr >> 8) & 0xff, (saddrptr->sin_addr.s_addr >> 16) & 0xff, (saddrptr->sin_addr.s_addr >> 24) & 0xff
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-char* query_passphrase(const char *prompt, unsigned int max_length);
+bool query_passphrase(const char *prompt, char *passphrase, unsigned int passphrase_maxsize);
 void dump_hex_long(FILE *f, const void *vdata, unsigned int length);
-void dump_hex(FILE *f, const void *vdata, unsigned int length);
+void dump_hex(FILE *f, const void *vdata, unsigned int length, bool use_ascii);
+void dump_hexline(FILE *f, const char *prefix, const void *vdata, unsigned int length, bool use_ascii);
 bool is_hex(const char *str, int length);
 int parse_hexstr(const char *hexstr, uint8_t *data, int maxlen);
 bool truncate_crlf(char *string);
 bool buffer_randomize(uint8_t *buffer, unsigned int length);
-bool array_remove(void *base, unsigned int element_length, unsigned int element_count, unsigned int remove_element_index);
+bool is_zero(const void *data, unsigned int length);
+bool array_remove(void *base, unsigned int element_size, unsigned int element_count, unsigned int remove_element_index);
 bool ascii_encode(char *dest, unsigned int dest_buffer_size, const uint8_t *source_data, unsigned int source_data_length);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 

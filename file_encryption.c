@@ -37,7 +37,7 @@
 #include "global.h"
 
 struct key_t {
-	const char *passphrase;
+	char passphrase[MAX_PASSPHRASE_LENGTH];
 	enum kdf_t kdf;
 	uint8_t salt[ENCRYPTED_FILE_SALT_SIZE];
 	uint8_t key[ENCRYPTED_FILE_KEY_SIZE];
@@ -48,10 +48,10 @@ static void dump_key(const struct key_t *key) {
 	fprintf(stderr, "Dumping key:\n");
 	fprintf(stderr, "   Passphrase : %s\n", key->passphrase);
 	fprintf(stderr, "   Salt       : ");
-	dump_hex(stderr, key->salt, ENCRYPTED_FILE_SALT_SIZE);
+	dump_hex(stderr, key->salt, ENCRYPTED_FILE_SALT_SIZE, false);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "   Derived key: ");
-	dump_hex(stderr, key->key, ENCRYPTED_FILE_KEY_SIZE);
+	dump_hex(stderr, key->key, ENCRYPTED_FILE_KEY_SIZE, false);
 	fprintf(stderr, "\n");
 }
 #endif
@@ -59,8 +59,7 @@ static void dump_key(const struct key_t *key) {
 
 /* Derives a previous key with known salt. Passphrase and salt must be set. */
 static bool derive_previous_key(struct key_t *key) {
-	const char *passphrase = (key->passphrase == NULL) ? "" : key->passphrase;
-	const unsigned int pwlen = strlen(passphrase);
+	const unsigned int pwlen = strlen(key->passphrase);
 
 	if ((key->kdf >= KDF_SCRYPT_MIN) && (key->kdf <= KDF_SCRYPT_MAX)) {
 		unsigned int N, r, p;
@@ -85,7 +84,7 @@ static bool derive_previous_key(struct key_t *key) {
 		const unsigned int maxalloc_mib = 8 + ((128 * N * r * p + (1024 * 1024 - 1)) / 1024 / 1024);
 		log_msg(LLVL_DEBUG, "Deriving scrypt key with N = %u, r = %u, p = %u, i.e., ~%u MiB of memory", N, r, p, maxalloc_mib);
 
-		int result = EVP_PBE_scrypt(passphrase, pwlen, (const unsigned char*)key->salt, ENCRYPTED_FILE_SALT_SIZE, N, r, p, maxalloc_mib * 1024 * 1024, key->key, ENCRYPTED_FILE_KEY_SIZE);
+		int result = EVP_PBE_scrypt(key->passphrase, pwlen, (const unsigned char*)key->salt, ENCRYPTED_FILE_SALT_SIZE, N, r, p, maxalloc_mib * 1024 * 1024, key->key, ENCRYPTED_FILE_KEY_SIZE);
 		if (result != 1) {
 			log_msg(LLVL_FATAL, "Fatal: key derivation using scrypt failed");
 			return false;
@@ -102,7 +101,7 @@ static bool derive_previous_key(struct key_t *key) {
 				return false;
 		}
 
-		int result = PKCS5_PBKDF2_HMAC(passphrase, pwlen, (const unsigned char*)key->salt, ENCRYPTED_FILE_SALT_SIZE, iterations, EVP_sha256(), ENCRYPTED_FILE_KEY_SIZE, key->key);
+		int result = PKCS5_PBKDF2_HMAC(key->passphrase, pwlen, (const unsigned char*)key->salt, ENCRYPTED_FILE_SALT_SIZE, iterations, EVP_sha256(), ENCRYPTED_FILE_KEY_SIZE, key->key);
 		if (result != 1) {
 			log_msg(LLVL_FATAL, "Fatal: key derivation using PBKDF2 failed");
 			return false;
@@ -167,7 +166,7 @@ static bool encrypt_aes256_gcm(const void *plaintext, unsigned int plaintext_len
 		 * this stage, but this does not occur in GCM mode. */
 		int padding_len = 0;
 		if (!EVP_EncryptFinal_ex(ctx, ciphertext + ciphertext_len, &padding_len)) {
-			log_openssl(LLVL_FATAL, "Encryption of tail failed.");
+			log_openssl(LLVL_FATAL, "Finalization of encryption failed.");
 			success = false;
 			break;
 		}
@@ -252,7 +251,7 @@ static bool decrypt_aes256_gcm(unsigned char *ciphertext, unsigned int ciphertex
 		 * anything else is a failure - the plaintext is not trustworthy. */
 		int padding_len = 0;
 		if (EVP_DecryptFinal_ex(ctx, (uint8_t*)plaintext + plaintext_len, &padding_len) <= 0) {
-			log_openssl(LLVL_FATAL, "Decryption of tail failed.");
+			log_openssl(LLVL_FATAL, "Finalization of decryption failed; likely authentication tag mismatch.");
 			success = false;
 			break;
 		}
@@ -279,12 +278,13 @@ static bool derive_new_key(struct key_t *key) {
 	return derive_previous_key(key);
 }
 
-struct decrypted_file_t read_encrypted_file(const char *filename) {
+struct decrypted_file_t read_encrypted_file(const char *filename, passphrase_callback_function_t passphrase_callback) {
 	struct decrypted_file_t result = {
 		.success = true,
 		.data = NULL,
 	};
 	struct encrypted_file_t *encrypted_file = NULL;
+	struct key_t key = { 0 };
 
 	do {
 		/* Stat the file first to find out the size */
@@ -338,23 +338,23 @@ struct decrypted_file_t read_encrypted_file(const char *filename) {
 
 		/* Copy the file's salt into the key structure so we can derive the
 		 * proper decryption key */
-		struct key_t key;
-		memset(&key, 0, sizeof(struct key_t));
 		memcpy(key.salt, encrypted_file->salt, ENCRYPTED_FILE_IV_SIZE);
 		key.kdf = encrypted_file->kdf;
 
 		/* Get the passphrase from the user (if it is protected with one) */
-		char *user_passphrase = NULL;
 		if (encrypted_file->empty_passphrase) {
-			key.passphrase = "";
+			key.passphrase[0] = 0;
 		} else {
-			user_passphrase = query_passphrase("Keyfile password: ", MAX_PASSPHRASE_LENGTH);
-			if (!user_passphrase) {
+			if (!passphrase_callback) {
+				log_msg(LLVL_FATAL, "No passphrase callback given, but input file requires one.");
+				result.success = false;
+				break;
+			}
+			if (!passphrase_callback(key.passphrase, sizeof(key.passphrase))) {
 				log_msg(LLVL_FATAL, "Failed to query passphrase.");
 				result.success = false;
 				break;
 			}
-			key.passphrase = user_passphrase;
 		}
 
 		/* Then derive the key */
@@ -362,13 +362,6 @@ struct decrypted_file_t read_encrypted_file(const char *filename) {
 			log_msg(LLVL_FATAL, "Key derivation failed.");
 			result.success = false;
 			break;
-		}
-
-		/* If we used a passphrase, free it again */
-		if (user_passphrase) {
-			key.passphrase = NULL;
-			OPENSSL_cleanse(user_passphrase, MAX_PASSPHRASE_LENGTH);
-			free(user_passphrase);
 		}
 
 		/* Then do the decryption and check if authentication is OK */
@@ -380,6 +373,7 @@ struct decrypted_file_t read_encrypted_file(const char *filename) {
 		}
 	} while (false);
 
+	OPENSSL_cleanse(&key, sizeof(key));
 	if (!result.success) {
 		if (result.data) {
 			OPENSSL_cleanse(result.data, result.data_length);
@@ -396,9 +390,9 @@ struct decrypted_file_t read_encrypted_file(const char *filename) {
 
 bool write_encrypted_file(const char *filename, const void *plaintext, unsigned int plaintext_length, const char *passphrase, enum kdf_t kdf) {
 	struct key_t key = {
-		.passphrase = passphrase ? passphrase : "",
 		.kdf = kdf,
 	};
+	strncpy(key.passphrase, passphrase, sizeof(key.passphrase) - 1);
 	if (!derive_new_key(&key)) {
 		log_msg(LLVL_FATAL, "Key derivation failed.");
 		return false;
@@ -450,7 +444,6 @@ bool write_encrypted_file(const char *filename, const void *plaintext, unsigned 
 	} else {
 		log_libc(LLVL_ERROR, "fopen(3) of %s failed", filename);
 		success = false;
-		return false;
 	}
 
 	free(encrypted_file);

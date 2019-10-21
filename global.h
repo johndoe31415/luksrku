@@ -36,20 +36,23 @@
 /* How many volumes every host may contain */
 #define MAX_VOLUMES_PER_HOST								8
 
+/* How long in characters a host name may be */
+#define MAX_HOST_NAME_LENGTH								64
+
+/* How long in characters a cryptsetup device name mapping may be */
+#define MAX_DEVMAPPER_NAME_LENGTH							64
+
 /* How long a passphrase is (this is raw binary, not text) */
-#define PASSPHRASE_SIZE_BYTES								32
+#define LUKS_PASSPHRASE_RAW_SIZE_BYTES						32
 
 /* How long a passphrase is in it's encoded form, storing it as a character array */
-#define PASSPHRASE_TEXT_SIZE_BYTES							((((PASSPHRASE_SIZE_BYTES + 2) / 3) * 4) + 1)
-
-/* How long in characters a cryptsetup device name mapping may be */
-#define MAX_DEVMAPPER_NAME_LENGTH							63
-
-/* How long in characters a cryptsetup device name mapping may be */
-#define MAX_DESCRIPTION_LENGTH								63
+#define LUKS_PASSPHRASE_TEXT_SIZE_BYTES							((((LUKS_PASSPHRASE_RAW_SIZE_BYTES + 2) / 3) * 4) + 1)
 
 /* Number of characters a user-defined passphrase may be long */
-#define MAX_PASSPHRASE_LENGTH								255
+#define MAX_PASSPHRASE_LENGTH								256
+
+/* Number of characters a database filename can be long */
+#define MAX_FILENAME_LENGTH									256
 
 /* In what interval the server should broadcast that it's waiting for unlocking */
 #define WAITING_MESSAGE_BROADCAST_INTERVAL_MILLISECONDS		1000

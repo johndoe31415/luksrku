@@ -30,20 +30,17 @@
 #include "log.h"
 #include "global.h"
 
-char* query_passphrase(const char *prompt, unsigned int max_length) {
-	char *passphrase = calloc(1, max_length + 1);
-	if (!passphrase) {
-		log_libc(LLVL_ERROR, "malloc(3) of passphrase memory");
-		return NULL;
+bool query_passphrase(const char *prompt, char *passphrase, unsigned int passphrase_maxsize) {
+	if (passphrase_maxsize == 0) {
+		return false;
 	}
-
-	if (EVP_read_pw_string(passphrase, max_length, prompt, 0) != 0) {
+	if (EVP_read_pw_string(passphrase, passphrase_maxsize - 1, prompt, 0) != 0) {
 		log_openssl(LLVL_ERROR, "EVP_read_pw_string failed");
-		free(passphrase);
-		return NULL;
+		OPENSSL_cleanse(passphrase, passphrase_maxsize);
+		return false;
 	}
 
-	return passphrase;
+	return true;
 }
 
 void dump_hex_long(FILE *f, const void *vdata, unsigned int length) {
@@ -57,11 +54,24 @@ void dump_hex_long(FILE *f, const void *vdata, unsigned int length) {
 	}
 }
 
-void dump_hex(FILE *f, const void *vdata, unsigned int length) {
+void dump_hex(FILE *f, const void *vdata, unsigned int length, bool use_ascii) {
 	const uint8_t *data = (const uint8_t*)vdata;
 	for (unsigned int i = 0; i < length; i++) {
-		fprintf(f, "%02x", data[i]);
+		uint8_t character = data[i];
+		if (use_ascii && (character > 32) && (character < 127)) {
+			fprintf(f, "%c ", character);
+		} else {
+			fprintf(f, "%02x ", character);
+		}
 	}
+}
+
+void dump_hexline(FILE *f, const char *prefix, const void *vdata, unsigned int length, bool use_ascii) {
+	if (prefix) {
+		fprintf(f, "%s", prefix);
+	}
+	dump_hex(f, vdata, length, use_ascii);
+	fprintf(f, "\n");
 }
 
 bool is_hex(const char *str, int length) {
@@ -139,6 +149,16 @@ bool buffer_randomize(uint8_t *buffer, unsigned int length) {
 		return false;
 	}
 	fclose(f);
+	return true;
+}
+
+bool is_zero(const void *data, unsigned int length) {
+	const uint8_t *bytedata = (const uint8_t*)data;
+	for (unsigned int i = 0; i < length; i++) {
+		if (bytedata[i]) {
+			return false;
+		}
+	}
 	return true;
 }
 
