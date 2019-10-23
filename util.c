@@ -54,6 +54,12 @@ void dump_hex_long(FILE *f, const void *vdata, unsigned int length) {
 	}
 }
 
+void sprintf_hex(char *dest, const uint8_t *data, unsigned int length) {
+	for (unsigned int i = 0; i < length; i++) {
+		sprintf(dest + (2 * i), "%02x", data[i]);
+	}
+}
+
 void dump_hex(FILE *f, const void *vdata, unsigned int length, bool use_ascii) {
 	const uint8_t *data = (const uint8_t*)vdata;
 	for (unsigned int i = 0; i < length; i++) {

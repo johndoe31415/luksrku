@@ -33,6 +33,7 @@
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 bool query_passphrase(const char *prompt, char *passphrase, unsigned int passphrase_maxsize);
 void dump_hex_long(FILE *f, const void *vdata, unsigned int length);
+void sprintf_hex(char *dest, const uint8_t *data, unsigned int length);
 void dump_hex(FILE *f, const void *vdata, unsigned int length, bool use_ascii);
 void dump_hexline(FILE *f, const char *prefix, const void *vdata, unsigned int length, bool use_ascii);
 bool is_hex(const char *str, int length);

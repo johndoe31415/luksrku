@@ -439,6 +439,14 @@ static enum cmd_returncode_t cmd_rawdump(struct editor_context_t *ctx, const cha
 	for (unsigned int i = 0; i < ctx->keydb->host_count; i++) {
 		struct host_entry_t *host = &ctx->keydb->hosts[i];
 		fprintf(stderr, "Host %d:\n", i);
+		{
+			char host_uuid[ASCII_UUID_BUFSIZE];
+			sprintf_uuid(host_uuid, host->host_uuid);
+
+			char hex_psk[(PSK_SIZE_BYTES * 2) + 1];
+			sprintf_hex(hex_psk, host->tls_psk, PSK_SIZE_BYTES);
+			fprintf(stderr, "openssl s_client -connect 127.0.0.1:23170 -psk %s -psk_identity %s -curves X448:X25519 -ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384 -tls1_3\n", hex_psk, host_uuid);
+		}
 		dump_hexline(stderr, "    host_uuid    ", host->host_uuid, sizeof(host->host_uuid), false);
 		dump_hexline(stderr, "    host_name    ", host->host_name, sizeof(host->host_name), true);
 		dump_hexline(stderr, "    tls_psk      ", host->tls_psk, sizeof(host->tls_psk), false);
