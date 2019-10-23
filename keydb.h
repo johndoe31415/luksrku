@@ -33,17 +33,17 @@
 #define KEYDB_VERSION							2
 
 struct volume_entry_t {
-	uint8_t volume_uuid[16];									/* UUID of crypt_LUKS volume */
-	char devmapper_name[MAX_DEVMAPPER_NAME_LENGTH];				/* dmsetup name when unlocked. Zero-terminated string. */
-	uint8_t luks_passphrase[LUKS_PASSPHRASE_RAW_SIZE_BYTES];	/* LUKS passphrase used to unlock volume; raw byte data */
+	uint8_t volume_uuid[16];										/* UUID of crypt_LUKS volume */
+	char devmapper_name[MAX_DEVMAPPER_NAME_LENGTH];					/* dmsetup name when unlocked. Zero-terminated string. */
+	uint8_t luks_passphrase_raw[LUKS_PASSPHRASE_RAW_SIZE_BYTES];	/* LUKS passphrase used to unlock volume; raw byte data */
 };
 
 struct host_entry_t {
-	uint8_t host_uuid[16];										/* Host UUID */
-	char host_name[MAX_HOST_NAME_LENGTH];						/* Descriptive name of host */
-	uint8_t tls_psk[PSK_SIZE_BYTES];							/* Raw byte data of TLS-PSK that is used */
-	unsigned int volume_count;									/* Number of volumes of this host */
-	struct volume_entry_t volumes[MAX_VOLUMES_PER_HOST];		/* Volumes of this host */
+	uint8_t host_uuid[16];											/* Host UUID */
+	char host_name[MAX_HOST_NAME_LENGTH];							/* Descriptive name of host */
+	uint8_t tls_psk[PSK_SIZE_BYTES];								/* Raw byte data of TLS-PSK that is used */
+	unsigned int volume_count;										/* Number of volumes of this host */
+	struct volume_entry_t volumes[MAX_VOLUMES_PER_HOST];			/* Volumes of this host */
 };
 
 struct keydb_t {

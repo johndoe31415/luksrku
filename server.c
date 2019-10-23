@@ -305,8 +305,16 @@ static unsigned int psk_server_callback(SSL *ssl, const char *identity, unsigned
 }
 #endif
 
+struct client_ctx_t {
+	struct generic_tls_ctx_t *gctx;
+	const struct keydb_t *keydb;
+	const struct host_entry_t *host;
+	int fd;
+};
+
+
 static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t identity_len, SSL_SESSION **sessptr) {
-	const struct keydb_t *keydb = (const struct keydb_t*)SSL_get_default_passwd_cb_userdata(ssl);
+	struct client_ctx_t *ctx = (struct client_ctx_t*)SSL_get_app_data(ssl);
 
 	if (identity_len != ASCII_UUID_CHARACTER_COUNT) {
 		log_msg(LLVL_WARNING, "Received client identity of length %d, cannot be a UUID.", identity_len);
@@ -327,8 +335,8 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 		return 0;
 	}
 
-	const struct host_entry_t *host = keydb_get_host_by_uuid(keydb, uuid);
-	if (!host) {
+	ctx->host = keydb_get_host_by_uuid(ctx->keydb, uuid);
+	if (!ctx->host) {
 		log_msg(LLVL_WARNING, "Client connected with client UUID %s, but not present in key database.", uuid_str);
 		return 0;
 	}
@@ -346,7 +354,7 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 		return 0;
 	}
 
-	if (!SSL_SESSION_set1_master_key(sess, (const unsigned char*)"\x00\x11\x22", 3)) {
+	if (!SSL_SESSION_set1_master_key(sess, ctx->host->tls_psk, PSK_SIZE_BYTES)) {
 		log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK master key.");
 		SSL_SESSION_free(sess);
 		return 0;
@@ -368,34 +376,35 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 	return 1;
 }
 
-struct client_ctx_t {
-	struct generic_tls_ctx_t *gctx;
-	const struct keydb_t *keydb;
-	int fd;
-};
-
 static void *client_handler_thread(void *vctx) {
 	struct client_ctx_t *client = (struct client_ctx_t*)vctx;
 
 	SSL *ssl = SSL_new(client->gctx->ctx);
 	SSL_set_fd(ssl, client->fd);
-	SSL_set_default_passwd_cb_userdata(ssl, (void*)client->keydb);
+	SSL_set_app_data(ssl, client);
 
 	if (SSL_accept(ssl) <= 0) {
 		ERR_print_errors_fp(stderr);
 	} else {
-		log_msg(LLVL_DEBUG, "Client connected, sending their data...");
-		/*
-		while (true) {
-			struct msg_t msg;
-			int rxlen = SSL_read(ssl, &msg, sizeof(msg));
-			if (rxlen != sizeof(msg)) {
-				log_msg(LLVL_WARNING, "Tried to read message of %d bytes, recevied %d. Severing connection to client.", sizeof(msg), rxlen);
-				break;
+		if (client->host) {
+			log_msg(LLVL_DEBUG, "Client \"%s\" connected, sending unlock data for %d volumes...", client->host->host_name, client->host->volume_count);
+			for (unsigned int i = 0; i < client->host->volume_count; i++) {
+				const struct volume_entry_t *volume = &client->host->volumes[i];
+
+				struct msg_t msg = { 0 };
+				memcpy(msg.volume_uuid, volume->volume_uuid, 16);
+				memcpy(msg.luks_passphrase_raw, volume->luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
+
+				int txlen = SSL_write(ssl, &msg, sizeof(msg));
+				OPENSSL_cleanse(&msg, sizeof(msg));
+				if (txlen != sizeof(msg)) {
+					log_msg(LLVL_WARNING, "Tried to send message of %d bytes, but sent %d. Severing connection to client.", sizeof(msg), txlen);
+					break;
+				}
 			}
+		} else {
+			log_msg(LLVL_FATAL, "Client connected, but no host set.");
 		}
-		*/
-		fprintf(stderr, "done\n");
 	}
 
 	SSL_free(ssl);

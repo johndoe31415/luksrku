@@ -449,7 +449,7 @@ static enum cmd_returncode_t cmd_rawdump(struct editor_context_t *ctx, const cha
 				fprintf(stderr, "    Host %d / Volume %d:\n", i, j);
 				dump_hexline(stderr, "        volume_uuid     ", volume->volume_uuid, sizeof(volume->volume_uuid), false);
 				dump_hexline(stderr, "        devmapper_name  ", volume->devmapper_name, sizeof(volume->devmapper_name), true);
-				dump_hexline(stderr, "        luks_passphrase ", volume->luks_passphrase, sizeof(volume->luks_passphrase), false);
+				dump_hexline(stderr, "        luks_passphrase ", volume->luks_passphrase_raw, sizeof(volume->luks_passphrase_raw), false);
 			}
 		}
 	}

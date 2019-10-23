@@ -67,7 +67,7 @@ struct keydb_t* keydb_export_public(struct host_entry_t *host) {
 	/* But remove all LUKS passphrases of course, this is for the luksrku client */
 	for (unsigned int i = 0; i < host->volume_count; i++) {
 		struct volume_entry_t *volume = &public_host->volumes[i];
-		memset(volume->luks_passphrase, 0, sizeof(volume->luks_passphrase));
+		memset(volume->luks_passphrase_raw, 0, sizeof(volume->luks_passphrase_raw));
 	}
 
 	return public_db;
@@ -188,8 +188,8 @@ struct volume_entry_t* keydb_add_volume(struct host_entry_t *host, const char *d
 	struct volume_entry_t *volume = &host->volumes[host->volume_count];
 	memcpy(volume->volume_uuid, volume_uuid, 16);
 	strncpy(volume->devmapper_name, devmapper_name, sizeof(volume->devmapper_name) - 1);
-	if (!buffer_randomize(volume->luks_passphrase, sizeof(volume->luks_passphrase))) {
-		log_msg(LLVL_ERROR, "Failed to produce %d bytes of entropy for LUKS passphrase.", sizeof(volume->luks_passphrase));
+	if (!buffer_randomize(volume->luks_passphrase_raw, sizeof(volume->luks_passphrase_raw))) {
+		log_msg(LLVL_ERROR, "Failed to produce %d bytes of entropy for LUKS passphrase.", sizeof(volume->luks_passphrase_raw));
 		return NULL;
 	}
 	host->volume_count++;
@@ -211,11 +211,11 @@ bool keydb_del_volume(struct host_entry_t *host, const char *devmapper_name) {
 }
 
 bool keydb_rekey_volume(struct volume_entry_t *volume) {
-	return buffer_randomize(volume->luks_passphrase, sizeof(volume->luks_passphrase));
+	return buffer_randomize(volume->luks_passphrase_raw, sizeof(volume->luks_passphrase_raw));
 }
 
 bool keydb_get_volume_luks_passphrase(const struct volume_entry_t *volume, char *dest, unsigned int dest_buffer_size) {
-	return ascii_encode(dest, dest_buffer_size, volume->luks_passphrase, sizeof(volume->luks_passphrase));
+	return ascii_encode(dest, dest_buffer_size, volume->luks_passphrase_raw, sizeof(volume->luks_passphrase_raw));
 }
 
 bool keydb_write(const struct keydb_t *keydb, const char *filename, const char *passphrase) {
