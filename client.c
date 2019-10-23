@@ -32,13 +32,12 @@
 
 #include "log.h"
 #include "openssl.h"
-#include "keyfile.h"
 #include "util.h"
-#include "cmdline.h"
 #include "msg.h"
 #include "client.h"
 #include "blacklist.h"
 
+#if 0
 static const struct keydb_t *client_keydb;
 
 static unsigned int psk_client_callback(SSL *ssl, const char *hint, char *identity, unsigned int max_identity_len, unsigned char *psk, unsigned int max_psk_len) {
@@ -166,7 +165,7 @@ static bool parse_announcement(const struct options_t *options, const struct soc
 	return true;
 }
 
-bool tls_client(const struct keydb_t *keydb, const struct options_t *options) {
+static bool tls_client(const struct keydb_t *keydb, const struct options_t *options) {
 	client_keydb = keydb;
 
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -204,5 +203,10 @@ bool tls_client(const struct keydb_t *keydb, const struct options_t *options) {
 		}
 	}
 
+	return true;
+}
+#endif
+
+bool keyclient_start(const struct pgmopts_client_t *opts) {
 	return true;
 }

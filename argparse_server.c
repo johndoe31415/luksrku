@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2019-10-23 10:06:43
+ *   Generated at: 2019-10-23 20:13:13
  */
 
 #include <stdint.h>
@@ -127,7 +127,7 @@ bool argparse_server_parse(int argc, char **argv, argparse_server_callback_t arg
 void argparse_server_show_syntax(void) {
 	fprintf(stderr, "usage: luksrku server [-p port] [-s] [-v] filename\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "Starts an luksrku key server.\n");
+	fprintf(stderr, "Starts a luksrku key server.\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "positional arguments:\n");
 	fprintf(stderr, "  filename              Database file to load keys from.\n");

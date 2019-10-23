@@ -11,11 +11,12 @@ PYPGMOPTS := ../Python/pypgmopts/pypgmopts
 
 LDFLAGS := `pkg-config --libs openssl`
 
-OBJS := luksrku.o editor.o util.o log.o keydb.o file_encryption.o uuid.o argparse_edit.o pgmopts.o openssl.o server.o argparse_server.o thread.o
+OBJS := luksrku.o editor.o util.o log.o keydb.o file_encryption.o uuid.o argparse_edit.o pgmopts.o openssl.o server.o argparse_server.o thread.o argparse_client.o client.o
 
 parsers:
 	$(PYPGMOPTS) -n edit parsers/parser_edit.py
 	$(PYPGMOPTS) -n server parsers/parser_server.py
+	$(PYPGMOPTS) -n client parsers/parser_client.py
 
 install: all
 	cp luksrku $(INSTALL_PREFIX)sbin/

@@ -44,6 +44,7 @@
 #include "pgmopts.h"
 #include "uuid.h"
 #include "thread.h"
+#include "keydb.h"
 
 static int create_tcp_server_socket(int port) {
 	int s;
@@ -81,65 +82,6 @@ static int create_tcp_server_socket(int port) {
 static const struct keyentry_t *server_key;
 
 
-
-/* Wait for the socket to become acceptable or time out after given number of
- * milliseconds. Return true if acceptable socket is present or false if
- * timeout occured. */
-static bool socket_wait_acceptable(int sd, int timeout_millis) {
-	struct timeval tv;
-	memset(&tv, 0, sizeof(tv));
-	tv.tv_usec = timeout_millis * 1000;
-
-	fd_set fds;
-	FD_ZERO(&fds);
-	FD_SET(sd, &fds);
-
-	int result = select(sd + 1, &fds, NULL, NULL, &tv);
-	return result != 0;
-}
-
-static int create_udp_socket(void) {
-	int sd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sd < 0) {
-		log_libc(LLVL_ERROR, "Unable to create UDP server socket(2)");
-		return -1;
-	}
-	{
-		int value = 1;
-		if (setsockopt(sd, SOL_SOCKET, SO_BROADCAST, &value, sizeof(value))) {
-			log_libc(LLVL_ERROR, "Unable to set UDP socket in broadcast mode using setsockopt(2)");
-			close(sd);
-			return -1;
-		}
-	}
-
-
-	return sd;
-}
-
-static bool send_udp_broadcast_message(int sd, int port, const void *data, int length) {
-	struct sockaddr_in destination;
-	memset(&destination, 0, sizeof(struct sockaddr_in));
-	destination.sin_family = AF_INET;
-	destination.sin_port = htons(port);
-	destination.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-
-	if (sendto(sd, data, length, 0, (struct sockaddr *)&destination, sizeof(struct sockaddr_in)) < 0) {
-		log_libc(LLVL_ERROR, "Unable to sendto(2)");
-		return false;
-	}
-	return true;
-}
-
-static bool announce_waiting_message(int sd, int port, const struct keyentry_t *key) {
-	struct announcement_t msg;
-	const uint8_t magic[16] = CLIENT_ANNOUNCE_MAGIC;
-	memset(&msg, 0, sizeof(msg));
-	memcpy(msg.magic, magic, 16);
-	memcpy(msg.host_uuid, key->host_uuid, 16);
-
-	return send_udp_broadcast_message(sd, port, &msg, sizeof(msg));
-}
 
 static bool unlock_disk(const struct diskentry_t *disk, const uint8_t *passphrase, int passphrase_length) {
 	char ascii_uuid[40];

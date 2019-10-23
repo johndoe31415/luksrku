@@ -29,6 +29,7 @@
 #include "pgmopts.h"
 #include "argparse_edit.h"
 #include "argparse_server.h"
+#include "argparse_client.h"
 
 static struct pgmopts_t pgmopts_rw;
 const struct pgmopts_t *pgmopts = &pgmopts_rw;
@@ -80,6 +81,27 @@ static bool server_callback(enum argparse_server_option_t option, const char *va
 	return true;
 }
 
+static bool client_callback(enum argparse_client_option_t option, const char *value, argparse_client_errmsg_callback_t errmsg_callback) {
+	switch (option) {
+		case ARG_CLIENT_FILENAME:
+			pgmopts_rw.client.filename = value;
+			break;
+
+		case ARG_CLIENT_HOSTNAME:
+			pgmopts_rw.client.hostname = value;
+			break;
+
+		case ARG_CLIENT_PORT:
+			pgmopts_rw.client.port = atoi(value);
+			break;
+
+		case ARG_CLIENT_VERBOSE:
+			pgmopts_rw.client.verbosity++;
+			break;
+	}
+	return true;
+}
+
 static void parse_pgmopts_edit(int argc, char **argv) {
 	pgmopts_rw.edit = (struct pgmopts_edit_t){
 		.verbosity = ARGPARSE_EDIT_DEFAULT_VERBOSE,
@@ -96,6 +118,14 @@ static void parse_pgmopts_server(int argc, char **argv) {
 	argparse_server_parse_or_quit(argc - 1, argv + 1, server_callback, NULL);
 }
 
+static void parse_pgmopts_client(int argc, char **argv) {
+	pgmopts_rw.client = (struct pgmopts_client_t){
+		.port = ARGPARSE_SERVER_DEFAULT_PORT,
+		.verbosity = ARGPARSE_SERVER_DEFAULT_VERBOSE,
+	};
+	argparse_client_parse_or_quit(argc - 1, argv + 1, client_callback, NULL);
+}
+
 void parse_pgmopts_or_quit(int argc, char **argv) {
 	if (argc < 2) {
 		show_syntax("no command supplied", argc, argv);
@@ -109,6 +139,9 @@ void parse_pgmopts_or_quit(int argc, char **argv) {
 	} else if (!strcasecmp(command, "server")) {
 		pgmopts_rw.pgm = PGM_SERVER;
 		parse_pgmopts_server(argc, argv);
+	} else if (!strcasecmp(command, "client")) {
+		pgmopts_rw.pgm = PGM_CLIENT;
+		parse_pgmopts_client(argc, argv);
 	} else {
 		show_syntax("unsupported command supplied", argc, argv);
 		exit(EXIT_FAILURE);

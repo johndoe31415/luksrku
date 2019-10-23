@@ -25,7 +25,6 @@
 #define __SERVER_H__
 
 #include <stdbool.h>
-#include "keydb.h"
 #include "pgmopts.h"
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/

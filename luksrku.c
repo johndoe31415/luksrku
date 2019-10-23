@@ -31,6 +31,7 @@
 #include "editor.h"
 #include "openssl.h"
 #include "server.h"
+#include "client.h"
 
 #if OPENSSL_VERSION_NUMBER < 0x010100000
 #error "luksrku requires at least OpenSSL v1.1 to work."
@@ -47,7 +48,8 @@ static int main_server(const struct pgmopts_server_t *opts) {
 }
 
 static int main_client(const struct pgmopts_client_t *opts) {
-	return 0;
+	log_setlvl(LOGLEVEL_DEFAULT + opts->verbosity);
+	return keyclient_start(opts) ? 0 : 1;
 }
 
 int main(int argc, char **argv) {

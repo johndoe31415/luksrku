@@ -45,6 +45,9 @@ struct pgmopts_server_t {
 };
 
 struct pgmopts_client_t {
+	const char *filename;
+	const char *hostname;
+	unsigned int port;
 	unsigned int verbosity;
 };
 

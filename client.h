@@ -24,11 +24,11 @@
 #ifndef __CLIENT_H__
 #define __CLIENT_H__
 
-#include "keyfile.h"
-#include "cmdline.h"
+#include <stdbool.h>
+#include "pgmopts.h"
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-bool dtls_client(const struct keydb_t *keydb, const struct options_t *options);
+bool keyclient_start(const struct pgmopts_client_t *opts);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif
