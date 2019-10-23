@@ -111,3 +111,63 @@ void free_generic_tls_context(struct generic_tls_ctx_t *gctx) {
 	gctx->conf_ctx = NULL;
 }
 
+enum psk_hash_t {
+	PSK_HASH_SHA256,
+	PSK_HASH_SHA384,
+};
+
+int openssl_tls13_psk_establish_session(SSL *ssl, const uint8_t *psk, unsigned int psk_length, const EVP_MD *cipher_md, SSL_SESSION **new_session) {
+	uint8_t codepoint[2];
+	if (cipher_md == EVP_sha256()) {
+		// TLS_AES_128_GCM_SHA256
+		codepoint[0] = 0x13;
+		codepoint[1] = 0x01;
+	} else if (cipher_md == EVP_sha384()) {
+		// TLS_AES_256_GCM_SHA384
+		codepoint[0] = 0x13;
+		codepoint[1] = 0x02;
+	} else {
+		log_msg(LLVL_ERROR, "Unknown hash function %p (%s) passed for which we do not know how to create a SSL_CIPHER*.", cipher_md, EVP_MD_name(cipher_md));
+		return 0;
+	}
+
+	const SSL_CIPHER *cipher = SSL_CIPHER_find(ssl, codepoint);
+	if (!cipher) {
+		log_msg(LLVL_ERROR, "Unable to determine SSL_CIPHER* from codepoint 0x%02x 0x%02x (%s).", codepoint[0], codepoint[1], EVP_MD_name(cipher_md));
+		return 0;
+	}
+
+	SSL_SESSION *sess = SSL_SESSION_new();
+	if (!sess) {
+		log_openssl(LLVL_ERROR, "Failed to create SSL_SESSION context for client.");
+		return 0;
+	}
+
+	int return_value = 1;
+	do {
+		if (!SSL_SESSION_set1_master_key(sess, psk, psk_length)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK master key.");
+			return_value = 0;
+			break;
+		}
+
+		if (!SSL_SESSION_set_cipher(sess, cipher)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK cipher.");
+			return_value = 0;
+			break;
+		}
+
+		if (!SSL_SESSION_set_protocol_version(sess, TLS1_3_VERSION)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK protocol version.");
+			return_value = 0;
+			break;
+		}
+	} while (false);
+
+	if (return_value) {
+		*new_session = sess;
+	} else {
+		SSL_SESSION_free(sess);
+	}
+	return return_value;
+}

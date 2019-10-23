@@ -37,6 +37,7 @@ struct generic_tls_ctx_t {
 bool openssl_init(void);
 bool create_generic_tls_context(struct generic_tls_ctx_t *gctx, bool server);
 void free_generic_tls_context(struct generic_tls_ctx_t *gctx);
+int openssl_tls13_psk_establish_session(SSL *ssl, const uint8_t *psk, unsigned int psk_length, const EVP_MD *cipher_md, SSL_SESSION **new_session);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif
