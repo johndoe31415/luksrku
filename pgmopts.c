@@ -45,6 +45,8 @@ static void show_syntax(const char *errmsg, int argc, char **argv) {
 	fprintf(stderr, "    %s client   Unlock LUKS volumes by querying a key server\n", argv[0]);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "For futher help: %s (command) --help\n", argv[0]);
+	fprintf(stderr, "\n");
+	fprintf(stderr, "luksrku version " BUILD_REVISION "\n");
 }
 
 static bool edit_callback(enum argparse_edit_option_t option, const char *value, argparse_edit_errmsg_callback_t errmsg_callback) {
