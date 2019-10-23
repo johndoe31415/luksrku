@@ -11,7 +11,7 @@ PYPGMOPTS := ../Python/pypgmopts/pypgmopts
 
 LDFLAGS := `pkg-config --libs openssl`
 
-OBJS := luksrku.o editor.o util.o log.o keydb.o file_encryption.o uuid.o argparse_edit.o pgmopts.o openssl.o server.o argparse_server.o
+OBJS := luksrku.o editor.o util.o log.o keydb.o file_encryption.o uuid.o argparse_edit.o pgmopts.o openssl.o server.o argparse_server.o thread.o
 
 parsers:
 	$(PYPGMOPTS) -n edit parsers/parser_edit.py

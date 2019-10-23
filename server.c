@@ -43,6 +43,7 @@
 #include "luks.h"
 #include "pgmopts.h"
 #include "uuid.h"
+#include "thread.h"
 
 static int create_tcp_server_socket(int port) {
 	int s;
@@ -376,7 +377,7 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 	return 1;
 }
 
-static void *client_handler_thread(void *vctx) {
+static void client_handler_thread(void *vctx) {
 	struct client_ctx_t *client = (struct client_ctx_t*)vctx;
 
 	SSL *ssl = SSL_new(client->gctx->ctx);
@@ -410,8 +411,6 @@ static void *client_handler_thread(void *vctx) {
 	SSL_free(ssl);
 	shutdown(client->fd, SHUT_RDWR);
 	close(client->fd);
-	free(client);
-	return NULL;
 }
 
 bool keyserver_start(const struct pgmopts_server_t *opts) {
@@ -455,41 +454,17 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 		}
 
 		/* Client has connected, fire up client thread. */
-		struct client_ctx_t *client_ctx = calloc(1, sizeof(struct client_ctx_t));
-		if (!client_ctx) {
-			log_libc(LLVL_FATAL, "Unable to malloc(3) client ctx");
-			close(tcp_sock);
-			free_generic_tls_context(&gctx);
-			return false;
-		}
-		client_ctx->gctx = &gctx;
-		client_ctx->keydb = keydb;
-		client_ctx->fd = client;
-
-		pthread_t thread;
-		pthread_attr_t attrs;
-		if (pthread_attr_init(&attrs)) {
+		struct client_ctx_t client_ctx = {
+			.gctx = &gctx,
+			.keydb = keydb,
+			.fd = client,
+		};
+		if (!pthread_create_detached_thread(client_handler_thread, &client_ctx, sizeof(client_ctx))) {
 			log_libc(LLVL_FATAL, "Unable to pthread_attr_init(3)");
 			close(tcp_sock);
 			free_generic_tls_context(&gctx);
 			return false;
 		}
-		if (pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED)) {
-			log_libc(LLVL_FATAL, "Unable to pthread_attr_setdetachstate(3)");
-			close(tcp_sock);
-			free_generic_tls_context(&gctx);
-			return false;
-		}
-		if (pthread_create(&thread, &attrs, client_handler_thread, client_ctx)) {
-			log_libc(LLVL_FATAL, "Unable to pthread_create(3) a client thread");
-			close(tcp_sock);
-			free_generic_tls_context(&gctx);
-			return false;
-
-		}
-
-
-
 	}
 
 	free_generic_tls_context(&gctx);
