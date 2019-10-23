@@ -25,13 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "server.h"
-#include "client.h"
 #include "openssl.h"
-#include "binkeyfile.h"
-#include "cmdline.h"
 #include "log.h"
-#include "keyfile.h"
 
 #if OPENSSL_VERSION_NUMBER < 0x010100000
 #error "luksrku requires at least OpenSSL v1.1 to work."
@@ -42,6 +37,7 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "WARNING: This has been compiled in DEBUG mode and uses reduced security.\n");
 #endif
 
+#if 0
 	struct options_t options;
 	if (!parse_cmdline_arguments(&options, argc, argv)) {
 		print_syntax(argv[0]);
@@ -108,6 +104,7 @@ int main(int argc, char **argv) {
 	if (!success) {
 		exit(EXIT_FAILURE);
 	}
+#endif
 
 	return 0;
 }

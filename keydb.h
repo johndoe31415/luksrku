@@ -49,7 +49,7 @@ struct host_entry_t {
 struct keydb_t {
 	unsigned int keydb_version;
 	bool server_database;
-	int host_count;
+	unsigned int host_count;
 	struct host_entry_t hosts[];
 };
 

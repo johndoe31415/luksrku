@@ -176,7 +176,7 @@ bool array_remove(void *base, unsigned int element_size, unsigned int element_co
 
 	/* Then, wipe the last element */
 	const unsigned int last_element_offset = element_size * (element_count - 1);
-	memset(base + last_element_offset, 0, element_size);
+	memset(bytebase + last_element_offset, 0, element_size);
 	return true;
 }
 

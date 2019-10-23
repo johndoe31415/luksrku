@@ -49,9 +49,9 @@ struct editor_context_t {
 };
 
 struct editor_command_t {
-	const char *cmdnames[MAX_COMMAND_ALIAS_COUNT];
 	unsigned int min_params;
 	unsigned int max_params;
+	const char *cmdnames[MAX_COMMAND_ALIAS_COUNT];
 	const char *param_names;
 	const char *description;
 	enum cmd_returncode_t (*callback)(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
@@ -179,7 +179,7 @@ static const struct editor_command_t commands[] = {
 		.description = "Dumps the raw representation of a file",
 	},
 #endif
-	{ { 0 } }
+	{ 0 }
 };
 
 static void format_command(char dest[static 128], const struct editor_command_t *cmd, const char *command_name) {
@@ -548,13 +548,3 @@ void editor_start(void) {
 	}
 	OPENSSL_cleanse(&editor_context, sizeof(editor_context));
 }
-
-#ifndef __TEST_EDITOR__
-// gcc -O3 -ggdb3 -DDEBUG -D_POSIX_SOURCE -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -o editor editor.c util.c log.c keydb.c file_encryption.c uuid.c -lcrypto && ./editor
-
-int main(int argc, char **argv) {
-	editor_start();
-	return 0;
-}
-
-#endif
