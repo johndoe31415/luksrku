@@ -330,92 +330,101 @@ static void client_handler_thread(void *vctx) {
 	struct client_ctx_t *client = (struct client_ctx_t*)vctx;
 
 	SSL *ssl = SSL_new(client->gctx->ctx);
-	SSL_set_fd(ssl, client->fd);
-	SSL_set_app_data(ssl, client);
+	if (ssl) {
+		SSL_set_fd(ssl, client->fd);
+		SSL_set_app_data(ssl, client);
 
-	if (SSL_accept(ssl) <= 0) {
-		ERR_print_errors_fp(stderr);
-	} else {
-		if (client->host) {
-			log_msg(LLVL_DEBUG, "Client \"%s\" connected, sending unlock data for %d volumes.", client->host->host_name, client->host->volume_count);
-			for (unsigned int i = 0; i < client->host->volume_count; i++) {
-				const struct volume_entry_t *volume = &client->host->volumes[i];
-
-				struct msg_t msg = { 0 };
-				memcpy(msg.volume_uuid, volume->volume_uuid, 16);
-				memcpy(msg.luks_passphrase_raw, volume->luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
-
-				int txlen = SSL_write(ssl, &msg, sizeof(msg));
-				OPENSSL_cleanse(&msg, sizeof(msg));
-				if (txlen != sizeof(msg)) {
-					log_msg(LLVL_WARNING, "Tried to send message of %d bytes, but sent %d. Severing connection to client.", sizeof(msg), txlen);
-					break;
-				}
-			}
+		if (SSL_accept(ssl) <= 0) {
+			ERR_print_errors_fp(stderr);
 		} else {
-			log_msg(LLVL_FATAL, "Client connected, but no host set.");
-		}
-	}
+			if (client->host) {
+				log_msg(LLVL_DEBUG, "Client \"%s\" connected, sending unlock data for %d volumes.", client->host->host_name, client->host->volume_count);
+				for (unsigned int i = 0; i < client->host->volume_count; i++) {
+					const struct volume_entry_t *volume = &client->host->volumes[i];
 
+					struct msg_t msg = { 0 };
+					memcpy(msg.volume_uuid, volume->volume_uuid, 16);
+					memcpy(msg.luks_passphrase_raw, volume->luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
+
+					int txlen = SSL_write(ssl, &msg, sizeof(msg));
+					OPENSSL_cleanse(&msg, sizeof(msg));
+					if (txlen != sizeof(msg)) {
+						log_msg(LLVL_WARNING, "Tried to send message of %d bytes, but sent %d. Severing connection to client.", sizeof(msg), txlen);
+						break;
+					}
+				}
+			} else {
+				log_msg(LLVL_FATAL, "Client connected, but no host set.");
+			}
+		}
+	} else {
+		log_openssl(LLVL_FATAL, "Cannot establish SSL context for connecting client");
+	}
 	SSL_free(ssl);
 	shutdown(client->fd, SHUT_RDWR);
 	close(client->fd);
 }
 
 bool keyserver_start(const struct pgmopts_server_t *opts) {
-	/* Load key database first */
-	struct keydb_t* keydb = keydb_read(opts->filename);
-	if (!keydb) {
-		log_msg(LLVL_FATAL, "Failed to load key database: %s", opts->filename);
-		return false;
-	}
-
-	if (!keydb->server_database) {
-		log_msg(LLVL_FATAL, "Not a server key database: %s", opts->filename);
-		keydb_free(keydb);
-		return false;
-	}
-
-	struct generic_tls_ctx_t gctx;
-	if (!create_generic_tls_context(&gctx, true)) {
-		log_msg(LLVL_FATAL, "Failed to create OpenSSL server context.");
-		return false;
-	}
-
-	SSL_CTX_set_psk_find_session_callback(gctx.ctx, psk_server_callback);
-
-	int tcp_sock = create_tcp_server_socket(opts->port);
-	if (tcp_sock == -1) {
-		log_msg(LLVL_ERROR, "Cannot start server without server socket.");
-		free_generic_tls_context(&gctx);
-		return false;
-	}
-
-	while (true) {
-		struct sockaddr_in addr;
-		unsigned int len = sizeof(addr);
-		int client = accept(tcp_sock, (struct sockaddr*)&addr, &len);
-		if (client < 0) {
-			log_libc(LLVL_ERROR, "Unable to accept(2)");
-			close(tcp_sock);
-			free_generic_tls_context(&gctx);
-			return false;
+	bool success = true;
+	struct keydb_t* keydb = NULL;
+	struct generic_tls_ctx_t gctx = { 0 };
+	do {
+		/* Load key database first */
+		keydb = keydb_read(opts->filename);
+		if (!keydb) {
+			log_msg(LLVL_FATAL, "Failed to load key database: %s", opts->filename);
+			success = false;
+			break;
 		}
 
-		/* Client has connected, fire up client thread. */
-		struct client_ctx_t client_ctx = {
-			.gctx = &gctx,
-			.keydb = keydb,
-			.fd = client,
-		};
-		if (!pthread_create_detached_thread(client_handler_thread, &client_ctx, sizeof(client_ctx))) {
-			log_libc(LLVL_FATAL, "Unable to pthread_attr_init(3)");
-			close(tcp_sock);
-			free_generic_tls_context(&gctx);
-			return false;
+		if (!keydb->server_database) {
+			log_msg(LLVL_FATAL, "Not a server key database: %s", opts->filename);
+			success = false;
+			break;
 		}
-	}
 
+		if (!create_generic_tls_context(&gctx, true)) {
+			log_msg(LLVL_FATAL, "Failed to create OpenSSL server context.");
+			success = false;
+			break;
+		}
+
+		SSL_CTX_set_psk_find_session_callback(gctx.ctx, psk_server_callback);
+
+		int tcp_sock = create_tcp_server_socket(opts->port);
+		if (tcp_sock == -1) {
+			log_msg(LLVL_ERROR, "Cannot start server without server socket.");
+			success = false;
+			break;
+		}
+
+		while (true) {
+			struct sockaddr_in addr;
+			unsigned int len = sizeof(addr);
+			int client = accept(tcp_sock, (struct sockaddr*)&addr, &len);
+			if (client < 0) {
+				log_libc(LLVL_ERROR, "Unable to accept(2)");
+				close(tcp_sock);
+				free_generic_tls_context(&gctx);
+				return false;
+			}
+
+			/* Client has connected, fire up client thread. */
+			struct client_ctx_t client_ctx = {
+				.gctx = &gctx,
+				.keydb = keydb,
+				.fd = client,
+			};
+			if (!pthread_create_detached_thread(client_handler_thread, &client_ctx, sizeof(client_ctx))) {
+				log_libc(LLVL_FATAL, "Unable to pthread_attr_init(3)");
+				close(tcp_sock);
+				free_generic_tls_context(&gctx);
+				return false;
+			}
+		}
+	} while (false);
 	free_generic_tls_context(&gctx);
-	return true;
+	keydb_free(keydb);
+	return success;
 }

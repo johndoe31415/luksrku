@@ -1,10 +1,10 @@
-.PHONY: all clean test testclient install parsers
+.PHONY: all clean test_s test_c install parsers
 all: luksrku
 
 BUILD_REVISION := $(shell git describe --abbrev=10 --dirty --always --tags)
 INSTALL_PREFIX := /usr/local/
 CFLAGS := -Wall -Wextra -Wshadow -Wswitch -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Werror=implicit-function-declaration -Werror=format -Wno-unused-parameter
-CFLAGS += -O3 -std=c11 -pthread -D_POSIX_SOURCE -D_XOPEN_SOURCE=500 -DBUILD_REVISION='"$(BUILD_REVISION)"'
+CFLAGS += -O3 -std=c11 -pthread -D_POSIX_SOURCE -D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=500 -DBUILD_REVISION='"$(BUILD_REVISION)"'
 CFLAGS += `pkg-config --cflags openssl`
 CFLAGS += -ggdb3 -DDEBUG -fsanitize=address -fsanitize=undefined -fsanitize=leak
 PYPGMOPTS := ../Python/pypgmopts/pypgmopts
@@ -26,14 +26,11 @@ install: all
 clean:
 	rm -f $(OBJS) $(OBJS_CFG) luksrku
 
-test: luksrku
+test_s: luksrku
 	./luksrku server -vv base
 
-gdb: luksrku
-	gdb --args ./luksrku -v --server-mode -k server_key.bin
-
-testclient: luksrku
-	./luksrku -v --client-mode -k client_keys.bin
+test_c: luksrku
+	./luksrku client -vv export 127.0.0.1
 
 .c.o:
 	$(CC) $(CFLAGS) -c -o $@ $<
