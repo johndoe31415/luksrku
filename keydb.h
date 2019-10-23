@@ -57,8 +57,9 @@ struct keydb_t {
 struct keydb_t* keydb_new(void);
 struct keydb_t* keydb_export_public(struct host_entry_t *host);
 void keydb_free(struct keydb_t *keydb);
-struct volume_entry_t *keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name);
-struct host_entry_t *keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name);
+struct volume_entry_t* keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name);
+struct host_entry_t* keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name);
+const struct host_entry_t* keydb_get_host_by_uuid(const struct keydb_t *keydb, const uint8_t uuid[static 16]);
 bool keydb_add_host(struct keydb_t **keydb, const char *host_name);
 bool keydb_del_host_by_name(struct keydb_t **keydb, const char *host_name);
 bool keydb_rekey_host(struct host_entry_t *host);

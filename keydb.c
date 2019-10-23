@@ -98,14 +98,24 @@ static int keydb_get_host_index_by_name(struct keydb_t *keydb, const char *host_
 	return -1;
 }
 
-struct volume_entry_t *keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name) {
+struct volume_entry_t* keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name) {
 	const int index = keydb_get_volume_index_by_name(host, devmapper_name);
 	return (index >= 0) ? &host->volumes[index] : NULL;
 }
 
-struct host_entry_t *keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name) {
+struct host_entry_t* keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name) {
 	const int index = keydb_get_host_index_by_name(keydb, host_name);
 	return (index >= 0) ? &keydb->hosts[index] : NULL;
+}
+
+const struct host_entry_t* keydb_get_host_by_uuid(const struct keydb_t *keydb, const uint8_t uuid[static 16]) {
+	for (unsigned int i = 0; i < keydb->host_count; i++) {
+		const struct host_entry_t *host = &keydb->hosts[i];
+		if (!memcmp(host->host_uuid, uuid, 16)) {
+			return host;
+		}
+	}
+	return NULL;
 }
 
 bool keydb_add_host(struct keydb_t **keydb, const char *host_name) {

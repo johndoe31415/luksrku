@@ -27,8 +27,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define ASCII_UUID_CHARACTER_COUNT	36
+
 /* Already includes zero termination */
-#define ASCII_UUID_BUFSIZE			37
+#define ASCII_UUID_BUFSIZE			(ASCII_UUID_CHARACTER_COUNT + 1)
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 bool is_valid_uuid(const char *ascii_uuid);
