@@ -91,21 +91,15 @@ bool create_generic_tls_context(struct generic_tls_ctx_t *gctx, bool server) {
 		return false;
 	}
 
-	/* In the cipher suite we're using, none of these should be used anyways
-	 * (PSK); however for the future we want to have proper crypto here as
-	 * well. */
-#if 0
-	if (!SSL_CTX_set1_sigalgs_list(gctx->ctx, "ECDSA+SHA256:RSA+SHA256:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA512:RSA+SHA512")) {
+	if (!SSL_CTX_set1_sigalgs_list(gctx->ctx, "ed448:ed25519")) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context signature algorithms.");
 		return false;
 	}
-#endif
 
 	if (!SSL_CTX_set1_curves_list(gctx->ctx, "X448:X25519")) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context ECDHE curves.");
 		return false;
 	}
-
 	return true;
 }
 

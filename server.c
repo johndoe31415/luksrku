@@ -308,9 +308,12 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 	fprintf(stderr, "PSK server SSL %p identity %s len %ld sess %p\n", ssl, identity, identity_len, *sessptr);
 	SSL_SESSION *sess = SSL_SESSION_new();
 	SSL_SESSION_set1_master_key(sess, (const unsigned char*)"\x00\x11\x22", 3);
-	SSL_SESSION_set_cipher(sess, SSL_get_pending_cipher(ssl));
-	//const SSL_CIPHER *cipher = SSL_CIPHER_find(ssl, TLS13_AES_256_GCM_SHA384_BYTES);
-	//SSL_SESSION_set_cipher(sess, cipher);
+	const unsigned char tls13_aes128gcmsha256_id[] = { 0x13, 0x01 };
+	const SSL_CIPHER *cipher = SSL_CIPHER_find(ssl, tls13_aes128gcmsha256_id);
+	if (!cipher) {
+		return 0;
+	}
+	SSL_SESSION_set_cipher(sess, cipher);
 	SSL_SESSION_set_protocol_version(sess, TLS1_3_VERSION);
 	*sessptr = sess;
 	return 1;
@@ -331,8 +334,18 @@ static void *client_handler_thread(void *vctx) {
 		ERR_print_errors_fp(stderr);
 	} else {
 		log_msg(LLVL_DEBUG, "Client connected, waiting for data...");
+		while (true) {
+			struct msg_t msg;
+			int rxlen = SSL_read(ssl, &msg, sizeof(msg));
+			if (rxlen != sizeof(msg)) {
+				log_msg(LLVL_WARNING, "Tried to read message of %d bytes, recevied %d. Severing connection to client.", sizeof(msg), rxlen);
+				break;
+			}
+		}
+		fprintf(stderr, "done\n");
 	}
 
+	SSL_free(ssl);
 	shutdown(client->fd, SHUT_RDWR);
 	close(client->fd);
 	free(client);
@@ -347,6 +360,9 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 	}
 
 	SSL_CTX_set_psk_find_session_callback(gctx.ctx, psk_server_callback);
+
+    if (!SSL_CTX_use_psk_identity_hint(gctx.ctx, "watwatwat")) {
+	}
 
 	int tcp_sock = create_tcp_server_socket(opts->port);
 	if (tcp_sock == -1) {
