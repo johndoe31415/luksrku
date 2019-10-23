@@ -27,9 +27,13 @@
 #include <stdint.h>
 #include "global.h"
 
-struct announcement_t {
+struct udp_query_t {
 	uint8_t magic[16];
 	uint8_t host_uuid[16];
+} __attribute__ ((packed));
+
+struct udp_response_t {
+	uint8_t magic[16];
 } __attribute__ ((packed));
 
 struct msg_t {

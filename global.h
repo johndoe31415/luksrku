@@ -25,10 +25,9 @@
 #define __GLOBAL_H__
 
 /* Magic is the prefix of announcement packages. It is the MD5SUM over the
- * CLIENT_PSK_IDENTITY. This only changes when the protocol that is spoken
+ * string "luksrku v2". This only changes when the protocol that is spoken
  * changes. */
-#define CLIENT_PSK_IDENTITY									"luksrku v2"
-#define CLIENT_ANNOUNCE_MAGIC								{ 0x46, 0xf2, 0xf6, 0xc6, 0x63, 0x12, 0x2e, 0x00, 0xa0, 0x8a, 0xae, 0x42, 0x0c, 0x51, 0xf5, 0x65 }
+#define UDP_MESSAGE_MAGIC									(const uint8_t[]){ 0x46, 0xf2, 0xf6, 0xc6, 0x63, 0x12, 0x2e, 0x00, 0xa0, 0x8a, 0xae, 0x42, 0x0c, 0x51, 0xf5, 0x65 }
 
 /* Size in bytes of the PSK that is used for TLS */
 #define PSK_SIZE_BYTES										32

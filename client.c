@@ -152,6 +152,54 @@ static bool contact_keyserver_hostname(struct keyclient_t *keyclient, const char
 	return success;
 }
 
+static int create_udp_socket(void) {
+	int sd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sd < 0) {
+		log_libc(LLVL_ERROR, "Unable to create UDP server socket(2)");
+		return -1;
+	}
+	{
+		int value = 1;
+		if (setsockopt(sd, SOL_SOCKET, SO_BROADCAST, &value, sizeof(value))) {
+			log_libc(LLVL_ERROR, "Unable to set UDP socket in broadcast mode using setsockopt(2)");
+			close(sd);
+			return -1;
+		}
+	}
+	return sd;
+}
+
+static bool send_udp_broadcast_message(int sd, unsigned int port, const void *data, unsigned int length) {
+	struct sockaddr_in destination;
+	memset(&destination, 0, sizeof(struct sockaddr_in));
+	destination.sin_family = AF_INET;
+	destination.sin_port = htons(port);
+	destination.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+
+	if (sendto(sd, data, length, 0, (struct sockaddr *)&destination, sizeof(struct sockaddr_in)) < 0) {
+		log_libc(LLVL_ERROR, "Unable to sendto(2)");
+		return false;
+	}
+	return true;
+}
+
+
+static bool broadcast_for_keyserver(struct keyclient_t *keyclient) {
+	int sd = create_udp_socket();
+	if (sd == -1) {
+		return false;
+	}
+
+	struct udp_query_t query;
+	memcpy(query.magic, UDP_MESSAGE_MAGIC, sizeof(query.magic));
+	memcpy(query.host_uuid, keyclient->keydb->hosts[0].host_uuid, 16);
+	while (true) {
+		send_udp_broadcast_message(sd, keyclient->opts->port, &query, sizeof(query));
+		sleep(1);
+	}
+	return true;
+}
+
 bool keyclient_start(const struct pgmopts_client_t *opts) {
 	/* Load key database first */
 	struct keyclient_t keyclient = {
@@ -197,7 +245,11 @@ bool keyclient_start(const struct pgmopts_client_t *opts) {
 				break;
 			}
 		} else {
-			/* TODO: Loop until keyserver found */
+			if (!broadcast_for_keyserver(&keyclient)) {
+				log_msg(LLVL_ERROR, "Failed to find key server using UDP broadcast.");
+				success = false;
+				break;
+			}
 		}
 	} while (false);
 
