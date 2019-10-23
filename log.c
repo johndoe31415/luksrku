@@ -37,6 +37,7 @@ static const char *loglvl_names[] = {
 	[LLVL_WARNING] = "WARNING",
 	[LLVL_INFO] = "INFO",
 	[LLVL_DEBUG] = "DEBUG",
+	[LLVL_TRACE] = "TRACE",
 };
 
 void log_setlvl(enum loglvl_t level) {

@@ -11,7 +11,7 @@ PYPGMOPTS := ../Python/pypgmopts/pypgmopts
 
 LDFLAGS := `pkg-config --libs openssl`
 
-OBJS := luksrku.o editor.o util.o log.o keydb.o file_encryption.o uuid.o argparse_edit.o pgmopts.o openssl.o server.o argparse_server.o thread.o argparse_client.o client.o
+OBJS := luksrku.o editor.o util.o log.o keydb.o file_encryption.o uuid.o argparse_edit.o pgmopts.o openssl.o server.o argparse_server.o thread.o argparse_client.o client.o signals.o
 
 parsers:
 	$(PYPGMOPTS) -n edit parsers/parser_edit.py
@@ -27,10 +27,10 @@ clean:
 	rm -f $(OBJS) $(OBJS_CFG) luksrku
 
 test_s: luksrku
-	./luksrku server -vv base
+	./luksrku server -vv testdata/server.bin
 
 test_c: luksrku
-	./luksrku client -vv export 127.0.0.1
+	./luksrku client -vv testdata/client.bin 127.0.0.1
 
 .c.o:
 	$(CC) $(CFLAGS) -c -o $@ $<

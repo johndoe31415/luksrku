@@ -30,6 +30,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <signal.h>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -45,6 +46,7 @@
 #include "uuid.h"
 #include "thread.h"
 #include "keydb.h"
+#include "signals.h"
 
 static int create_tcp_server_socket(int port) {
 	int s;
@@ -370,6 +372,9 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 	struct keydb_t* keydb = NULL;
 	struct generic_tls_ctx_t gctx = { 0 };
 	do {
+		/* We ignore SIGPIPE or the server will die when clients disconnect suddenly */
+		ignore_signal(SIGPIPE);
+
 		/* Load key database first */
 		keydb = keydb_read(opts->filename);
 		if (!keydb) {

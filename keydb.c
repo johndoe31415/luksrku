@@ -74,8 +74,10 @@ struct keydb_t* keydb_export_public(struct host_entry_t *host) {
 }
 
 void keydb_free(struct keydb_t *keydb) {
-	OPENSSL_cleanse(keydb, keydb_getsize(keydb));
-	free(keydb);
+	if (keydb) {
+		OPENSSL_cleanse(keydb, keydb_getsize(keydb));
+		free(keydb);
+	}
 }
 
 static int keydb_get_volume_index_by_name(struct host_entry_t *host, const char *devmapper_name) {

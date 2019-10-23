@@ -21,26 +21,13 @@
 	Johannes Bauer <JohannesBauer@gmx.de>
 */
 
-#ifndef __LOG_H__
-#define __LOG_H__
+#ifndef __SIGNALS_H__
+#define __SIGNALS_H__
 
-#define LOGLEVEL_DEFAULT		LLVL_INFO
-
-enum loglvl_t {
-	LLVL_FATAL = 0,
-	LLVL_ERROR = 1,
-	LLVL_WARNING = 2,
-	LLVL_INFO = 3,
-	LLVL_DEBUG = 4,
-	LLVL_TRACE = 5,
-};
+#include <stdbool.h>
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-void log_setlvl(enum loglvl_t level);
-bool should_log(enum loglvl_t level);
-void log_msg(enum loglvl_t level, const char *msg, ...);
-void log_libc(enum loglvl_t level, const char *msg, ...);
-void log_openssl(enum loglvl_t level, const char *msg, ...);
+bool ignore_signal(int signum);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif

@@ -41,6 +41,7 @@
 #include "client.h"
 #include "blacklist.h"
 #include "keydb.h"
+#include "uuid.h"
 
 #if 0
 static const struct keydb_t *client_keydb;
@@ -216,11 +217,53 @@ struct keyclient_t {
 	const struct pgmopts_client_t *opts;
 	struct keydb_t *keydb;
 	bool volume_unlocked[MAX_VOLUMES_PER_HOST];
+	unsigned char identifier[ASCII_UUID_BUFSIZE];
 };
 
-static int psk_client_callback(SSL *ssl, const EVP_MD *md, const unsigned char **id, size_t *idlen, SSL_SESSION **sess) {
-	fprintf(stderr, "CLIENT CALLBACK\n");
-	return 0;
+static int psk_client_callback(SSL *ssl, const EVP_MD *md, const unsigned char **id, size_t *idlen, SSL_SESSION **sessptr) {
+	struct keyclient_t *key_client = (struct keyclient_t*)SSL_get_app_data(ssl);
+	*id = key_client->identifier;
+	*idlen = ASCII_UUID_CHARACTER_COUNT;
+
+	SSL_SESSION *sess = SSL_SESSION_new();
+	if (!sess) {
+		log_openssl(LLVL_ERROR, "Failed to create SSL_SESSION context for client.");
+		return 0;
+	}
+
+	const uint8_t tls13_aes128gcmsha256_id[] = { 0x13, 0x01 };
+	const SSL_CIPHER *cipher = SSL_CIPHER_find(ssl, tls13_aes128gcmsha256_id);
+	if (!cipher) {
+		log_openssl(LLVL_ERROR, "Unable to look up SSL_CIPHER for TLSv1.3-PSK");
+		return 0;
+	}
+
+	int return_value = 1;
+	do {
+		if (!SSL_SESSION_set1_master_key(sess, key_client->keydb->hosts[0].tls_psk, PSK_SIZE_BYTES)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK master key.");
+			return_value = 0;
+			break;
+		}
+
+		if (!SSL_SESSION_set_cipher(sess, cipher)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK cipher.");
+			return_value = 0;
+			break;
+		}
+
+		if (!SSL_SESSION_set_protocol_version(sess, TLS1_3_VERSION)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK protocol version.");
+			return_value = 0;
+			break;
+		}
+	} while (false);
+
+	if (return_value) {
+		*sessptr = sess;
+	}
+
+	return return_value;
 }
 
 static bool contact_keyserver_socket(struct keyclient_t *keyclient, int sd) {
@@ -237,7 +280,24 @@ static bool contact_keyserver_socket(struct keyclient_t *keyclient, int sd) {
 		SSL_set_app_data(ssl, keyclient);
 
 		if (SSL_connect(ssl) == 1) {
-			fprintf(stderr, "OK\n");
+			struct msg_t msg;
+			while (true) {
+				int bytes_read = SSL_read(ssl, &msg, sizeof(msg));
+				if (bytes_read == 0) {
+					/* Server closed the connection. */
+					break;
+				}
+				if (bytes_read != sizeof(msg)) {
+					log_openssl(LLVL_FATAL, "SSL_read returned %d bytes when we expected to read %d", bytes_read, sizeof(msg));
+					break;
+				}
+				if (should_log(LLVL_TRACE)) {
+					char uuid_str[ASCII_UUID_BUFSIZE];
+					sprintf_uuid(uuid_str, msg.volume_uuid);
+					log_msg(LLVL_TRACE, "Received LUKS key to unlock volume with UUID %s", uuid_str);
+				}
+			}
+			OPENSSL_cleanse(&msg, sizeof(msg));
 		} else {
 			log_openssl(LLVL_FATAL, "SSL_connect failed");
 		}
@@ -292,7 +352,7 @@ static bool contact_keyserver_hostname(struct keyclient_t *keyclient, const char
 	}
 
 	struct sockaddr_in *sin_address = (struct sockaddr_in*)result->ai_addr;
-	log_msg(LLVL_DEBUG, "Resolved %s to %d.%d.%d.%d", hostname, PRINTF_FORMAT_IP(sin_address));
+	log_msg(LLVL_TRACE, "Resolved %s to %d.%d.%d.%d", hostname, PRINTF_FORMAT_IP(sin_address));
 
 	bool success = contact_keyserver_ipv4(keyclient, sin_address, keyclient->opts->port);
 
@@ -333,6 +393,9 @@ bool keyclient_start(const struct pgmopts_client_t *opts) {
 			success = false;
 			break;
 		}
+
+		/* Transcribe the host UUID to ASCII so we only have to do this once */
+		sprintf_uuid((char*)keyclient.identifier, host->host_uuid);
 
 		log_msg(LLVL_DEBUG, "Attempting to unlock %d volumes of host \"%s\".", host->volume_count, host->host_name);
 		if (opts->hostname) {
