@@ -56,35 +56,33 @@ struct client_ctx_t {
 };
 
 static int create_tcp_server_socket(int port) {
-	int s;
-	struct sockaddr_in addr;
-
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	s = socket(AF_INET, SOCK_STREAM, 0);
-	if (s < 0) {
+	int sd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sd < 0) {
 		log_libc(LLVL_ERROR, "Unable to create TCP socket(2)");
 		return -1;
 	}
 
 	{
 		int value = 1;
-		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
+		setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
 	}
 
-	if (bind(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+	struct sockaddr_in addr = {
+		.sin_family = AF_INET,
+		.sin_port = htons(port),
+		.sin_addr.s_addr = htonl(INADDR_ANY),
+	};
+	if (bind(sd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 		log_libc(LLVL_ERROR, "Unable to bind(2) socket");
 		return -1;
 	}
 
-	if (listen(s, 1) < 0) {
+	if (listen(sd, 1) < 0) {
 		log_libc(LLVL_ERROR, "Unable to listen(2) on socket");
 		return -1;
 	}
 
-	return s;
+	return sd;
 }
 
 static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t identity_len, SSL_SESSION **sessptr) {
