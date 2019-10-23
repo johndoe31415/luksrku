@@ -24,6 +24,8 @@
 #ifndef __LOG_H__
 #define __LOG_H__
 
+#define LOGLEVEL_DEFAULT		LLVL_INFO
+
 enum loglvl_t {
 	LLVL_FATAL = 0,
 	LLVL_ERROR = 1,

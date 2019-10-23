@@ -355,26 +355,33 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 		return 0;
 	}
 
-	if (!SSL_SESSION_set1_master_key(sess, ctx->host->tls_psk, PSK_SIZE_BYTES)) {
-		log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK master key.");
-		SSL_SESSION_free(sess);
-		return 0;
-	}
+	int return_value = 1;
+	do {
+		if (!SSL_SESSION_set1_master_key(sess, ctx->host->tls_psk, PSK_SIZE_BYTES)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK master key.");
+			return_value = 0;
+			break;
+		}
 
-	if (!SSL_SESSION_set_cipher(sess, cipher)) {
-		log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK cipher.");
-		SSL_SESSION_free(sess);
-		return 0;
-	}
+		if (!SSL_SESSION_set_cipher(sess, cipher)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK cipher.");
+			return_value = 0;
+			break;
+		}
 
-	if (!SSL_SESSION_set_protocol_version(sess, TLS1_3_VERSION)) {
-		log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK protocol version.");
-		SSL_SESSION_free(sess);
-		return 0;
-	}
+		if (!SSL_SESSION_set_protocol_version(sess, TLS1_3_VERSION)) {
+			log_openssl(LLVL_ERROR, "Failed to set TLSv1.3-PSK protocol version.");
+			return_value = 0;
+			break;
+		}
+	} while (false);
 
-	*sessptr = sess;
-	return 1;
+	if (return_value) {
+		*sessptr = sess;
+	} else {
+		SSL_SESSION_free(sess);
+	}
+	return return_value;
 }
 
 static void client_handler_thread(void *vctx) {
@@ -388,7 +395,7 @@ static void client_handler_thread(void *vctx) {
 		ERR_print_errors_fp(stderr);
 	} else {
 		if (client->host) {
-			log_msg(LLVL_DEBUG, "Client \"%s\" connected, sending unlock data for %d volumes...", client->host->host_name, client->host->volume_count);
+			log_msg(LLVL_DEBUG, "Client \"%s\" connected, sending unlock data for %d volumes.", client->host->host_name, client->host->volume_count);
 			for (unsigned int i = 0; i < client->host->volume_count; i++) {
 				const struct volume_entry_t *volume = &client->host->volumes[i];
 

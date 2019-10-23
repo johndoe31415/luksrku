@@ -26,7 +26,7 @@ clean:
 	rm -f $(OBJS) $(OBJS_CFG) luksrku
 
 test: luksrku
-	./luksrku -v --server-mode -k server_key.bin
+	./luksrku server -vv base
 
 gdb: luksrku
 	gdb --args ./luksrku -v --server-mode -k server_key.bin

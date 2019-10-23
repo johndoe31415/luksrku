@@ -30,7 +30,7 @@
 
 #include "log.h"
 
-static enum loglvl_t current_loglvl = LLVL_INFO;
+static enum loglvl_t current_loglvl = LOGLEVEL_DEFAULT;
 static const char *loglvl_names[] = {
 	[LLVL_FATAL] = "FATAL",
 	[LLVL_ERROR] = "ERROR",

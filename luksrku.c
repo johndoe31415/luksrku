@@ -37,10 +37,12 @@
 #endif
 
 static int main_edit(const struct pgmopts_edit_t *opts) {
+	log_setlvl(LOGLEVEL_DEFAULT + opts->verbosity);
 	return editor_start(opts) ? 0 : 1;
 }
 
 static int main_server(const struct pgmopts_server_t *opts) {
+	log_setlvl(LOGLEVEL_DEFAULT + opts->verbosity);
 	return keyserver_start(opts) ? 0 : 1;
 }
 

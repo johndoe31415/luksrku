@@ -30,8 +30,7 @@
 #include "argparse_edit.h"
 #include "argparse_server.h"
 
-static struct pgmopts_t pgmopts_rw = {
-};
+static struct pgmopts_t pgmopts_rw;
 const struct pgmopts_t *pgmopts = &pgmopts_rw;
 
 static void show_syntax(const char *errmsg, int argc, char **argv) {
@@ -48,9 +47,6 @@ static void show_syntax(const char *errmsg, int argc, char **argv) {
 }
 
 static bool edit_callback(enum argparse_edit_option_t option, const char *value, argparse_edit_errmsg_callback_t errmsg_callback) {
-	pgmopts_rw.edit = (struct pgmopts_edit_t){
-		.verbosity = ARGPARSE_EDIT_DEFAULT_VERBOSE,
-	};
 	switch (option) {
 		case ARG_EDIT_FILENAME:
 			pgmopts_rw.edit.filename = value;
@@ -64,11 +60,6 @@ static bool edit_callback(enum argparse_edit_option_t option, const char *value,
 }
 
 static bool server_callback(enum argparse_server_option_t option, const char *value, argparse_server_errmsg_callback_t errmsg_callback) {
-	pgmopts_rw.server = (struct pgmopts_server_t){
-		.port = ARGPARSE_SERVER_DEFAULT_PORT,
-		.verbosity = ARGPARSE_SERVER_DEFAULT_VERBOSE,
-		.answer_udp_queries = true,
-	};
 	switch (option) {
 		case ARG_SERVER_FILENAME:
 			pgmopts_rw.server.filename = value;
@@ -90,10 +81,18 @@ static bool server_callback(enum argparse_server_option_t option, const char *va
 }
 
 static void parse_pgmopts_edit(int argc, char **argv) {
+	pgmopts_rw.edit = (struct pgmopts_edit_t){
+		.verbosity = ARGPARSE_EDIT_DEFAULT_VERBOSE,
+	};
 	argparse_edit_parse_or_quit(argc - 1, argv + 1, edit_callback, NULL);
 }
 
 static void parse_pgmopts_server(int argc, char **argv) {
+	pgmopts_rw.server = (struct pgmopts_server_t){
+		.port = ARGPARSE_SERVER_DEFAULT_PORT,
+		.verbosity = ARGPARSE_SERVER_DEFAULT_VERBOSE,
+		.answer_udp_queries = true,
+	};
 	argparse_server_parse_or_quit(argc - 1, argv + 1, server_callback, NULL);
 }
 
