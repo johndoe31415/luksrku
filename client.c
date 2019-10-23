@@ -69,7 +69,7 @@ static unsigned int psk_client_callback(SSL *ssl, const char *hint, char *identi
 	return PSK_SIZE_BYTES;
 }
 
-static int dtls_client_connect(const struct keyentry_t *keyentry, const char *host_port) {
+static int tls_client_connect(const struct keyentry_t *keyentry, const char *host_port) {
 	struct generic_tls_ctx_t gctx;
 	create_generic_tls_context(&gctx, false);
 
@@ -162,11 +162,11 @@ static bool parse_announcement(const struct options_t *options, const struct soc
 	snprintf(destination_address, sizeof(destination_address) - 1, "%d.%d.%d.%d:%d", PRINTF_FORMAT_IP(peer_addr), options->port);
 	log_msg(LLVL_DEBUG, "Trying to connect to %s in order to transmit keys", destination_address);
 
-	dtls_client_connect(keyentry, destination_address);
+	tls_client_connect(keyentry, destination_address);
 	return true;
 }
 
-bool dtls_client(const struct keydb_t *keydb, const struct options_t *options) {
+bool tls_client(const struct keydb_t *keydb, const struct options_t *options) {
 	client_keydb = keydb;
 
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);

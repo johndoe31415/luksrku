@@ -175,7 +175,7 @@ static bool all_disks_unlocked(const struct keyentry_t *keyentry) {
 	return true;
 }
 
-bool dtls_server(const struct keyentry_t *key, const struct options_t *options) {
+bool tls_server(const struct keyentry_t *key, const struct options_t *options) {
 	if (all_disks_unlocked(key)) {
 		log_msg(LLVL_INFO, "Starting of server not necessary, all disks already unlocked.");
 		return true;

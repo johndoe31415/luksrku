@@ -31,6 +31,7 @@
 #include "util.h"
 #include "keydb.h"
 #include "uuid.h"
+#include "log.h"
 
 #define MAX_COMMAND_ALIAS_COUNT			2
 
@@ -485,10 +486,27 @@ static enum cmd_returncode_t execute_command(const struct editor_command_t *cmd,
 	}
 }
 
-void editor_start(void) {
+bool editor_start(const char *edit_filename) {
 	struct editor_context_t editor_context = {
 		.running = true,
 	};
+
+	if (edit_filename) {
+		char *filename = strdup(edit_filename);
+		if (!filename) {
+			log_libc(LLVL_ERROR, "Unable to strdup(3)");
+			return false;
+		}
+		char *tokens[2] = {
+			"open",
+			filename,
+		};
+		enum cmd_returncode_t result = execute_command(find_command(tokens[0]), &editor_context, 2, tokens);
+		free(filename);
+		if (result != COMMAND_SUCCESS) {
+			return false;
+		}
+	}
 
 	while (editor_context.running) {
 		char command_buffer[256];
@@ -547,4 +565,5 @@ void editor_start(void) {
 		keydb_free(editor_context.keydb);
 	}
 	OPENSSL_cleanse(&editor_context, sizeof(editor_context));
+	return true;
 }

@@ -1,4 +1,4 @@
-.PHONY: all clean test testclient install
+.PHONY: all clean test testclient install parsers
 all: luksrku
 
 BUILD_REVISION := $(shell git describe --abbrev=10 --dirty --always --tags)
@@ -7,10 +7,14 @@ CFLAGS := -Wall -Wextra -Wshadow -Wswitch -Wpointer-arith -Wcast-qual -Wstrict-p
 CFLAGS += -O3 -std=c11 -pthread -D_POSIX_SOURCE -D_XOPEN_SOURCE=500 -DBUILD_REVISION='"$(BUILD_REVISION)"'
 CFLAGS += `pkg-config --cflags openssl`
 CFLAGS += -ggdb3 -DDEBUG -fsanitize=address -fsanitize=undefined -fsanitize=leak
+PYPGMOPTS := ../Python/pypgmopts/pypgmopts
 
 LDFLAGS := `pkg-config --libs openssl`
 
-OBJS := luksrku.o editor.o util.o log.o keydb.o file_encryption.o uuid.o
+OBJS := luksrku.o editor.o util.o log.o keydb.o file_encryption.o uuid.o argparse_edit.o pgmopts.o openssl.o
+
+parsers:
+	$(PYPGMOPTS) -n edit parsers/parser_edit.py
 
 install: all
 	cp luksrku $(INSTALL_PREFIX)sbin/

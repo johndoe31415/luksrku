@@ -27,15 +27,50 @@
 
 #include "openssl.h"
 #include "log.h"
+#include "pgmopts.h"
+#include "editor.h"
+#include "openssl.h"
 
 #if OPENSSL_VERSION_NUMBER < 0x010100000
 #error "luksrku requires at least OpenSSL v1.1 to work."
 #endif
 
+static int main_edit(const struct pgmopts_edit_t *opts) {
+	editor_start(opts->filename);
+	return 0;
+}
+
+static int main_server(const struct pgmopts_server_t *opts) {
+	return 0;
+}
+
+static int main_client(const struct pgmopts_client_t *opts) {
+	return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef DEBUG
 	fprintf(stderr, "WARNING: This has been compiled in DEBUG mode and uses reduced security.\n");
 #endif
+	parse_pgmopts_or_quit(argc, argv);
+
+	if (!openssl_init()) {
+		log_msg(LLVL_FATAL, "Could not initialize OpenSSL.");
+		exit(EXIT_FAILURE);
+	}
+
+	switch (pgmopts->pgm) {
+		case PGM_EDIT:
+			return main_edit(&pgmopts->edit);
+
+		case PGM_SERVER:
+			return main_server(&pgmopts->server);
+
+		case PGM_CLIENT:
+			return main_client(&pgmopts->client);
+	}
+
+	return 0;
 
 #if 0
 	struct options_t options;
@@ -47,10 +82,6 @@ int main(int argc, char **argv) {
 		log_setlvl(LLVL_DEBUG);
 	}
 
-	if (!openssl_init()) {
-		log_msg(LLVL_FATAL, "Could not initialize OpenSSL.");
-		exit(EXIT_FAILURE);
-	}
 
 	struct keydb_t keydb;
 	bool success = true;
@@ -87,13 +118,13 @@ int main(int argc, char **argv) {
 			}
 
 			if (!dtls_server(keydb_getentry(&keydb, 0), &options)) {
-				log_msg(LLVL_FATAL, "Failed to start DTLS server.");
+				log_msg(LLVL_FATAL, "Failed to start TLS server.");
 				success = false;
 				break;
 			}
 		} else {
 			if (!dtls_client(&keydb, &options)) {
-				log_msg(LLVL_FATAL, "Failed to connect DTLS client.");
+				log_msg(LLVL_FATAL, "Failed to connect TLS client.");
 				success = false;
 				break;
 			}

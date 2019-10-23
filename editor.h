@@ -2,7 +2,7 @@
 #define __EDITOR_H__
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-void editor_start(void);
+bool editor_start(const char *edit_filename);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif
