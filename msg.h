@@ -33,16 +33,10 @@ struct announcement_t {
 } __attribute__ ((packed));
 
 struct msg_t {
-	uint8_t disk_uuid[16];
-	uint32_t passphrase_length;
-	uint8_t passphrase[MAX_PASSPHRASE_LENGTH];
+	uint8_t volume_uuid[16];
+	uint8_t luks_passphrase_raw[LUKS_PASSPHRASE_RAW_SIZE_BYTES];
 } __attribute__ ((packed));
 
-staticassert(sizeof(struct msg_t) == 16 + 4 + MAX_PASSPHRASE_LENGTH);
-
-/*************** AUTO GENERATED SECTION FOLLOWS ***************/
-void msg_to_nbo(struct msg_t *msg);
-void msg_to_hbo(struct msg_t *msg);
-/***************  AUTO GENERATED SECTION ENDS   ***************/
+staticassert(sizeof(struct msg_t) == 16 + LUKS_PASSPHRASE_RAW_SIZE_BYTES);
 
 #endif

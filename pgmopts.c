@@ -24,9 +24,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include "pgmopts.h"
 #include "argparse_edit.h"
+#include "argparse_server.h"
 
 static struct pgmopts_t pgmopts_rw = {
 };
@@ -46,6 +48,9 @@ static void show_syntax(const char *errmsg, int argc, char **argv) {
 }
 
 static bool edit_callback(enum argparse_edit_option_t option, const char *value, argparse_edit_errmsg_callback_t errmsg_callback) {
+	pgmopts_rw.edit = (struct pgmopts_edit_t){
+		.verbosity = ARGPARSE_EDIT_DEFAULT_VERBOSE,
+	};
 	switch (option) {
 		case ARG_EDIT_FILENAME:
 			pgmopts_rw.edit.filename = value;
@@ -58,8 +63,38 @@ static bool edit_callback(enum argparse_edit_option_t option, const char *value,
 	return true;
 }
 
+static bool server_callback(enum argparse_server_option_t option, const char *value, argparse_server_errmsg_callback_t errmsg_callback) {
+	pgmopts_rw.server = (struct pgmopts_server_t){
+		.port = ARGPARSE_SERVER_DEFAULT_PORT,
+		.verbosity = ARGPARSE_SERVER_DEFAULT_VERBOSE,
+		.answer_udp_queries = true,
+	};
+	switch (option) {
+		case ARG_SERVER_FILENAME:
+			pgmopts_rw.server.filename = value;
+			break;
+
+		case ARG_SERVER_PORT:
+			pgmopts_rw.server.port = atoi(value);
+			break;
+
+		case ARG_SERVER_SILENT:
+			pgmopts_rw.server.answer_udp_queries = false;
+			break;
+
+		case ARG_SERVER_VERBOSE:
+			pgmopts_rw.server.verbosity++;
+			break;
+	}
+	return true;
+}
+
 static void parse_pgmopts_edit(int argc, char **argv) {
 	argparse_edit_parse_or_quit(argc - 1, argv + 1, edit_callback, NULL);
+}
+
+static void parse_pgmopts_server(int argc, char **argv) {
+	argparse_server_parse_or_quit(argc - 1, argv + 1, server_callback, NULL);
 }
 
 void parse_pgmopts_or_quit(int argc, char **argv) {
@@ -69,9 +104,12 @@ void parse_pgmopts_or_quit(int argc, char **argv) {
 	}
 
 	const char *command = argv[1];
-	if (!strcmp(command, "edit")) {
+	if (!strcasecmp(command, "edit")) {
 		pgmopts_rw.pgm = PGM_EDIT;
 		parse_pgmopts_edit(argc, argv);
+	} else if (!strcasecmp(command, "server")) {
+		pgmopts_rw.pgm = PGM_SERVER;
+		parse_pgmopts_server(argc, argv);
 	} else {
 		show_syntax("unsupported command supplied", argc, argv);
 		exit(EXIT_FAILURE);

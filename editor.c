@@ -486,13 +486,13 @@ static enum cmd_returncode_t execute_command(const struct editor_command_t *cmd,
 	}
 }
 
-bool editor_start(const char *edit_filename) {
+bool editor_start(const struct pgmopts_edit_t *opts) {
 	struct editor_context_t editor_context = {
 		.running = true,
 	};
 
-	if (edit_filename) {
-		char *filename = strdup(edit_filename);
+	if (opts->filename) {
+		char *filename = strdup(opts->filename);
 		if (!filename) {
 			log_libc(LLVL_ERROR, "Unable to strdup(3)");
 			return false;

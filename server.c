@@ -37,29 +37,13 @@
 #include "log.h"
 #include "openssl.h"
 #include "global.h"
-#include "keyfile.h"
 #include "msg.h"
 #include "util.h"
-#include "cmdline.h"
 #include "server.h"
 #include "luks.h"
+#include "pgmopts.h"
 
-static const struct keyentry_t *server_key;
-
-static unsigned int psk_server_callback(SSL *ssl, const char *identity, unsigned char *psk, unsigned int max_psk_len) {
-	if (max_psk_len < PSK_SIZE_BYTES) {
-		log_msg(LLVL_FATAL, "Server error: max_psk_len too small.");
-		return 0;
-	}
-	if (strcmp(identity, CLIENT_PSK_IDENTITY)) {
-		log_msg(LLVL_FATAL, "Server error: client identity '%s' unexpected (expected '%s').", identity, CLIENT_PSK_IDENTITY);
-		return 0;
-	}
-	memcpy(psk, server_key->psk, PSK_SIZE_BYTES);
-	return PSK_SIZE_BYTES;
-}
-
-static int create_tcp_socket(int port) {
+static int create_tcp_server_socket(int port) {
 	int s;
 	struct sockaddr_in addr;
 
@@ -90,6 +74,11 @@ static int create_tcp_socket(int port) {
 
 	return s;
 }
+
+#if 0
+static const struct keyentry_t *server_key;
+
+
 
 /* Wait for the socket to become acceptable or time out after given number of
  * milliseconds. Return true if acceptable socket is present or false if
@@ -175,7 +164,7 @@ static bool all_disks_unlocked(const struct keyentry_t *keyentry) {
 	return true;
 }
 
-bool tls_server(const struct keyentry_t *key, const struct options_t *options) {
+static bool tls_server(const struct keyentry_t *key, const struct options_t *options) {
 	if (all_disks_unlocked(key)) {
 		log_msg(LLVL_INFO, "Starting of server not necessary, all disks already unlocked.");
 		return true;
@@ -298,4 +287,122 @@ bool tls_server(const struct keyentry_t *key, const struct options_t *options) {
 	free_generic_tls_context(&gctx);
 	return true;
 }
+#endif
 
+#if 0
+static unsigned int psk_server_callback(SSL *ssl, const char *identity, unsigned char *psk, unsigned int max_psk_len) {
+	if (max_psk_len < PSK_SIZE_BYTES) {
+		log_msg(LLVL_FATAL, "Server error: max_psk_len too small.");
+		return 0;
+	}
+	if (strcmp(identity, CLIENT_PSK_IDENTITY)) {
+		log_msg(LLVL_FATAL, "Server error: client identity '%s' unexpected (expected '%s').", identity, CLIENT_PSK_IDENTITY);
+		return 0;
+	}
+//	memcpy(psk, server_key->psk, PSK_SIZE_BYTES);
+	return PSK_SIZE_BYTES;
+}
+#endif
+
+static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t identity_len, SSL_SESSION **sessptr) {
+	fprintf(stderr, "PSK server SSL %p identity %s len %ld sess %p\n", ssl, identity, identity_len, *sessptr);
+	SSL_SESSION *sess = SSL_SESSION_new();
+	SSL_SESSION_set1_master_key(sess, (const unsigned char*)"\x00\x11\x22", 3);
+	SSL_SESSION_set_cipher(sess, SSL_get_pending_cipher(ssl));
+	//const SSL_CIPHER *cipher = SSL_CIPHER_find(ssl, TLS13_AES_256_GCM_SHA384_BYTES);
+	//SSL_SESSION_set_cipher(sess, cipher);
+	SSL_SESSION_set_protocol_version(sess, TLS1_3_VERSION);
+	*sessptr = sess;
+	return 1;
+}
+
+struct client_ctx_t {
+	struct generic_tls_ctx_t *gctx;
+	int fd;
+};
+
+static void *client_handler_thread(void *vctx) {
+	struct client_ctx_t *client = (struct client_ctx_t*)vctx;
+
+	SSL *ssl = SSL_new(client->gctx->ctx);
+	SSL_set_fd(ssl, client->fd);
+
+	if (SSL_accept(ssl) <= 0) {
+		ERR_print_errors_fp(stderr);
+	} else {
+		log_msg(LLVL_DEBUG, "Client connected, waiting for data...");
+	}
+
+	shutdown(client->fd, SHUT_RDWR);
+	close(client->fd);
+	free(client);
+	return NULL;
+}
+
+bool keyserver_start(const struct pgmopts_server_t *opts) {
+	struct generic_tls_ctx_t gctx;
+	if (!create_generic_tls_context(&gctx, true)) {
+		log_msg(LLVL_FATAL, "Failed to create OpenSSL server context.");
+		return false;
+	}
+
+	SSL_CTX_set_psk_find_session_callback(gctx.ctx, psk_server_callback);
+
+	int tcp_sock = create_tcp_server_socket(opts->port);
+	if (tcp_sock == -1) {
+		log_msg(LLVL_ERROR, "Cannot start server without server socket.");
+		free_generic_tls_context(&gctx);
+		return false;
+	}
+
+	while (true) {
+		struct sockaddr_in addr;
+		unsigned int len = sizeof(addr);
+		int client = accept(tcp_sock, (struct sockaddr*)&addr, &len);
+		if (client < 0) {
+			log_libc(LLVL_ERROR, "Unable to accept(2)");
+			close(tcp_sock);
+			free_generic_tls_context(&gctx);
+			return false;
+		}
+
+		/* Client has connected, fire up client thread. */
+		struct client_ctx_t *client_ctx = calloc(1, sizeof(struct client_ctx_t));
+		if (!client_ctx) {
+			log_libc(LLVL_FATAL, "Unable to malloc(3) client ctx");
+			close(tcp_sock);
+			free_generic_tls_context(&gctx);
+			return false;
+		}
+		client_ctx->gctx = &gctx;
+		client_ctx->fd = client;
+
+		pthread_t thread;
+		pthread_attr_t attrs;
+		if (pthread_attr_init(&attrs)) {
+			log_libc(LLVL_FATAL, "Unable to pthread_attr_init(3)");
+			close(tcp_sock);
+			free_generic_tls_context(&gctx);
+			return false;
+		}
+		if (pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED)) {
+			log_libc(LLVL_FATAL, "Unable to pthread_attr_setdetachstate(3)");
+			close(tcp_sock);
+			free_generic_tls_context(&gctx);
+			return false;
+		}
+		if (pthread_create(&thread, &attrs, client_handler_thread, client_ctx)) {
+			log_libc(LLVL_FATAL, "Unable to pthread_create(3) a client thread");
+			close(tcp_sock);
+			free_generic_tls_context(&gctx);
+			return false;
+
+		}
+
+
+
+	}
+
+	free_generic_tls_context(&gctx);
+	return true;
+}

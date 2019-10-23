@@ -74,17 +74,19 @@ bool create_generic_tls_context(struct generic_tls_ctx_t *gctx, bool server) {
 	const long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_COMPRESSION | SSL_OP_SINGLE_DH_USE | SSL_OP_NO_TICKET | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
 	SSL_CTX_set_options(gctx->ctx, flags);
 
-	if (!SSL_CTX_set_min_proto_version(gctx->ctx, TLS1_2_VERSION)) {
+	if (!SSL_CTX_set_min_proto_version(gctx->ctx, TLS1_3_VERSION)) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context minimal version.");
 		return false;
 	}
 
-	if (!SSL_CTX_set_max_proto_version(gctx->ctx, TLS1_2_VERSION)) {
+	if (!SSL_CTX_set_max_proto_version(gctx->ctx, TLS1_3_VERSION)) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context maximal version.");
 		return false;
 	}
 
-	if (!SSL_CTX_set_cipher_list(gctx->ctx, "ECDHE-PSK-CHACHA20-POLY1305")) {
+	/* SSL_CTX_set_ciphersuites for TLSv1.3
+	 * SSL_CTX_set_cipher_list for TLS v1.2 and below */
+	if (!SSL_CTX_set_ciphersuites(gctx->ctx, "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384")) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context cipher suites.");
 		return false;
 	}
@@ -92,13 +94,14 @@ bool create_generic_tls_context(struct generic_tls_ctx_t *gctx, bool server) {
 	/* In the cipher suite we're using, none of these should be used anyways
 	 * (PSK); however for the future we want to have proper crypto here as
 	 * well. */
+#if 0
 	if (!SSL_CTX_set1_sigalgs_list(gctx->ctx, "ECDSA+SHA256:RSA+SHA256:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA512:RSA+SHA512")) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context signature algorithms.");
 		return false;
 	}
+#endif
 
-	/* TODO: When X448 becomes available, include it here. */
-	if (!SSL_CTX_set1_curves_list(gctx->ctx, "X25519")) {
+	if (!SSL_CTX_set1_curves_list(gctx->ctx, "X448:X25519")) {
 		log_openssl(LLVL_FATAL, "Cannot set TLS generic context ECDHE curves.");
 		return false;
 	}

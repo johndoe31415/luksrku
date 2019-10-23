@@ -30,18 +30,18 @@
 #include "pgmopts.h"
 #include "editor.h"
 #include "openssl.h"
+#include "server.h"
 
 #if OPENSSL_VERSION_NUMBER < 0x010100000
 #error "luksrku requires at least OpenSSL v1.1 to work."
 #endif
 
 static int main_edit(const struct pgmopts_edit_t *opts) {
-	editor_start(opts->filename);
-	return 0;
+	return editor_start(opts) ? 0 : 1;
 }
 
 static int main_server(const struct pgmopts_server_t *opts) {
-	return 0;
+	return keyserver_start(opts) ? 0 : 1;
 }
 
 static int main_client(const struct pgmopts_client_t *opts) {

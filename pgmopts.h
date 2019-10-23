@@ -38,6 +38,9 @@ struct pgmopts_edit_t {
 };
 
 struct pgmopts_server_t {
+	const char *filename;
+	unsigned int port;
+	bool answer_udp_queries;
 	unsigned int verbosity;
 };
 

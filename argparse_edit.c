@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2019-10-23 09:40:28
+ *   Generated at: 2019-10-23 10:06:43
  */
 
 #include <stdint.h>
@@ -109,6 +109,8 @@ bool argparse_edit_parse(int argc, char **argv, argparse_edit_callback_t argumen
 
 void argparse_edit_show_syntax(void) {
 	fprintf(stderr, "usage: luksrku edit [-v] [filename]\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "Edits a luksrks key database.\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "positional arguments:\n");
 	fprintf(stderr, "  filename       Database file to edit.\n");

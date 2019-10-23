@@ -24,11 +24,12 @@
 #ifndef __SERVER_H__
 #define __SERVER_H__
 
+#include <stdbool.h>
 #include "keydb.h"
-#include "cmdline.h"
+#include "pgmopts.h"
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-bool dtls_server(const struct keyentry_t *key, const struct options_t *options);
+bool keyserver_start(const struct pgmopts_server_t *opts);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif
