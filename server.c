@@ -48,11 +48,18 @@
 #include "keydb.h"
 #include "signals.h"
 
-struct client_ctx_t {
+struct client_thread_ctx_t {
 	struct generic_tls_ctx_t *gctx;
 	const struct keydb_t *keydb;
 	const struct host_entry_t *host;
 	int fd;
+};
+
+struct keyserver_t {
+	struct keydb_t* keydb;
+	struct generic_tls_ctx_t gctx;
+	const struct pgmopts_server_t *opts;
+	int tcp_sd;
 };
 
 static int create_tcp_server_socket(int port) {
@@ -86,7 +93,7 @@ static int create_tcp_server_socket(int port) {
 }
 
 static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t identity_len, SSL_SESSION **sessptr) {
-	struct client_ctx_t *ctx = (struct client_ctx_t*)SSL_get_app_data(ssl);
+	struct client_thread_ctx_t *ctx = (struct client_thread_ctx_t*)SSL_get_app_data(ssl);
 
 	if (identity_len != ASCII_UUID_CHARACTER_COUNT) {
 		log_msg(LLVL_WARNING, "Received client identity of length %d, cannot be a UUID.", identity_len);
@@ -117,7 +124,7 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 }
 
 static void client_handler_thread(void *vctx) {
-	struct client_ctx_t *client = (struct client_ctx_t*)vctx;
+	struct client_thread_ctx_t *client = (struct client_thread_ctx_t*)vctx;
 
 	SSL *ssl = SSL_new(client->gctx->ctx);
 	if (ssl) {
@@ -157,36 +164,38 @@ static void client_handler_thread(void *vctx) {
 
 bool keyserver_start(const struct pgmopts_server_t *opts) {
 	bool success = true;
-	struct keydb_t* keydb = NULL;
-	struct generic_tls_ctx_t gctx = { 0 };
+	struct keyserver_t keyserver = {
+		.opts = opts,
+		.tcp_sd = -1,
+	};
 	do {
 		/* We ignore SIGPIPE or the server will die when clients disconnect suddenly */
 		ignore_signal(SIGPIPE);
 
 		/* Load key database first */
-		keydb = keydb_read(opts->filename);
-		if (!keydb) {
+		keyserver.keydb = keydb_read(opts->filename);
+		if (!keyserver.keydb) {
 			log_msg(LLVL_FATAL, "Failed to load key database: %s", opts->filename);
 			success = false;
 			break;
 		}
 
-		if (!keydb->server_database) {
+		if (!keyserver.keydb->server_database) {
 			log_msg(LLVL_FATAL, "Not a server key database: %s", opts->filename);
 			success = false;
 			break;
 		}
 
-		if (!create_generic_tls_context(&gctx, true)) {
+		if (!create_generic_tls_context(&keyserver.gctx, true)) {
 			log_msg(LLVL_FATAL, "Failed to create OpenSSL server context.");
 			success = false;
 			break;
 		}
 
-		SSL_CTX_set_psk_find_session_callback(gctx.ctx, psk_server_callback);
+		SSL_CTX_set_psk_find_session_callback(keyserver.gctx.ctx, psk_server_callback);
 
-		int tcp_sock = create_tcp_server_socket(opts->port);
-		if (tcp_sock == -1) {
+		keyserver.tcp_sd = create_tcp_server_socket(opts->port);
+		if (keyserver.tcp_sd == -1) {
 			log_msg(LLVL_ERROR, "Cannot start server without server socket.");
 			success = false;
 			break;
@@ -195,29 +204,30 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 		while (true) {
 			struct sockaddr_in addr;
 			unsigned int len = sizeof(addr);
-			int client = accept(tcp_sock, (struct sockaddr*)&addr, &len);
+			int client = accept(keyserver.tcp_sd, (struct sockaddr*)&addr, &len);
 			if (client < 0) {
 				log_libc(LLVL_ERROR, "Unable to accept(2)");
-				close(tcp_sock);
-				free_generic_tls_context(&gctx);
-				return false;
+				success = false;
+				break;
 			}
 
 			/* Client has connected, fire up client thread. */
-			struct client_ctx_t client_ctx = {
-				.gctx = &gctx,
-				.keydb = keydb,
+			struct client_thread_ctx_t client_ctx = {
+				.gctx = &keyserver.gctx,
+				.keydb = keyserver.keydb,
 				.fd = client,
 			};
 			if (!pthread_create_detached_thread(client_handler_thread, &client_ctx, sizeof(client_ctx))) {
-				log_libc(LLVL_FATAL, "Unable to pthread_attr_init(3)");
-				close(tcp_sock);
-				free_generic_tls_context(&gctx);
-				return false;
+				log_libc(LLVL_FATAL, "Unable to create detached thread.");
+				success = false;
+				break;
 			}
 		}
 	} while (false);
-	free_generic_tls_context(&gctx);
-	keydb_free(keydb);
+	if (keyserver.tcp_sd != -1) {
+		close(keyserver.tcp_sd);
+	}
+	free_generic_tls_context(&keyserver.gctx);
+	keydb_free(keyserver.keydb);
 	return success;
 }
