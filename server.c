@@ -47,6 +47,14 @@
 #include "thread.h"
 #include "keydb.h"
 #include "signals.h"
+#include "udp.h"
+
+struct keyserver_t {
+	struct keydb_t* keydb;
+	struct generic_tls_ctx_t gctx;
+	const struct pgmopts_server_t *opts;
+	int tcp_sd, udp_sd;
+};
 
 struct client_thread_ctx_t {
 	struct generic_tls_ctx_t *gctx;
@@ -55,11 +63,10 @@ struct client_thread_ctx_t {
 	int fd;
 };
 
-struct keyserver_t {
-	struct keydb_t* keydb;
-	struct generic_tls_ctx_t gctx;
-	const struct pgmopts_server_t *opts;
-	int tcp_sd;
+struct udp_listen_thread_ctx_t {
+	const struct keydb_t *keydb;
+	int udp_sd;
+	unsigned int port;
 };
 
 static int create_tcp_server_socket(int port) {
@@ -162,11 +169,24 @@ static void client_handler_thread(void *vctx) {
 	close(client->fd);
 }
 
+static void udp_handler_thread(void *vctx) {
+	struct udp_listen_thread_ctx_t *client = (struct udp_listen_thread_ctx_t*)vctx;
+
+	while (true) {
+		struct udp_query_t rx_msg;
+		if (!wait_udp_broadcast_message(client->udp_sd, client->port, &rx_msg, sizeof(rx_msg), 1000)) {
+			continue;
+		}
+		fprintf(stderr, "RXED!\n");
+	}
+}
+
 bool keyserver_start(const struct pgmopts_server_t *opts) {
 	bool success = true;
 	struct keyserver_t keyserver = {
 		.opts = opts,
 		.tcp_sd = -1,
+		.udp_sd = -1,
 	};
 	do {
 		/* We ignore SIGPIPE or the server will die when clients disconnect suddenly */
@@ -201,6 +221,25 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 			break;
 		}
 
+		if (opts->answer_udp_queries) {
+			keyserver.udp_sd = create_udp_socket(opts->port, false);
+			if (keyserver.udp_sd == -1) {
+				success = false;
+				break;
+			}
+
+			struct udp_listen_thread_ctx_t udp_thread_ctx = {
+				.keydb = keyserver.keydb,
+				.udp_sd = keyserver.udp_sd,
+				.port = keyserver.opts->port,
+			};
+			if (!pthread_create_detached_thread(udp_handler_thread, &udp_thread_ctx, sizeof(udp_thread_ctx))) {
+				log_libc(LLVL_FATAL, "Unable to create detached thread for UDP messages.");
+				success = false;
+				break;
+			}
+		}
+
 		while (true) {
 			struct sockaddr_in addr;
 			unsigned int len = sizeof(addr);
@@ -218,12 +257,15 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 				.fd = client,
 			};
 			if (!pthread_create_detached_thread(client_handler_thread, &client_ctx, sizeof(client_ctx))) {
-				log_libc(LLVL_FATAL, "Unable to create detached thread.");
+				log_libc(LLVL_FATAL, "Unable to create detached thread for client.");
 				success = false;
 				break;
 			}
 		}
 	} while (false);
+	if (keyserver.udp_sd != -1) {
+		close(keyserver.udp_sd);
+	}
 	if (keyserver.tcp_sd != -1) {
 		close(keyserver.tcp_sd);
 	}

@@ -26,6 +26,7 @@ OBJS := \
 	server.o \
 	signals.o \
 	thread.o \
+	udp.o \
 	util.o \
 	uuid.o
 
