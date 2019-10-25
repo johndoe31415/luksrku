@@ -15,25 +15,44 @@ performs luksOpen on all volumes.
 
 ## Security
 luksrku uses TLSv1.3-PSK with forward-secrecy key shares (i.e., ECDHE). The
-curves that are used are X448 and X25519 for key agreement and
-TLS_CHACHA20_POLY1305_SHA256 or TLS_AES_256_GCM_SHA384 as cipher suites. PSKs
-are 256 bit long and randomly generated (/dev/urandom). Likewise, the LUKS
-passphrases are based on 256 bit long secrets and are converted to Base64 for
-easier handling (when setting up everything initially).
+curves that are used for key agreement are X448 and X25519.
+TLS_CHACHA20_POLY1305_SHA256 or TLS_AES_256_GCM_SHA384 are accepted as cipher
+suites.
 
-The binary protocol that runs between both is intentionally extremely simple to
-allow for easy code review. It exclusively uses fixed message lengths.
+The TLS PSKs are 256 bit long and randomly generated (`/dev/urandom`).
+Likewise, the LUKS passphrases are based on 256 bit long secrets, also
+generated from `/dev/urandom`, and are converted to Base64 for easier handling
+(when setting up everything initially).
 
-The key database is encrypted itself, using AES256-GCM, a 128 bit randomized
-initialization vector and authenticated with a 128 bit authentication tag. Key
-derivation is done using scrypt with N = 262144 = 2^18, r = 8, p = 1.
+The binary protocol that runs between server and client is intentionally
+extremely simple to allow for easy code review. It exclusively uses fixed
+message lengths. There are two portions to it, an UDP and a TCP portion:
 
-When not in use, the server encrypts all LUKS passphrases and PSKs in-memory. A
-large, 1 MiB pre-key is also kept in memory. This is to thwart cold-boot
-attacks, because a successful cold-boot attack would require a complete and
-perfect 1 MiB snapshot of the pre-key (or an acquisition in the short timeframe
-where the keyvault is open) -- something that is difficult to do because of
-naturally occuring bit errors during cold boot acquisition.
+Via UDP, a client broadcasts its client UUID (randomly generated when creating
+the client in the database) on the network (port 23170). A server then can
+check if it's key database contains that client's LUKS keys. If it does, the
+server will respond with a fixed unicast UDP datagram. The client receives this
+datagram and tries to establish a TCP connection to that server on the luksrku
+port 23170. This connection is secured using TLSv1.3-PSK, i.e., even when the
+UDP messages are spoofed/forged, a successful connection will only then happen
+if the server and client share the same, previously defined, PSK.
+
+For persistent storage, the key database is encrypted, using AES256-GCM. A 128
+bit randomized initialization vector is used and all data is authenticated with
+a 128 bit authentication tag. Key derivation is done using scrypt with N =
+262144 = 2^18, r = 8, p = 1 (although this is flexible in code and can be
+easily adapted).
+
+When the key database is not in use, the server encrypts all LUKS passphrases
+and PSKs in-memory (again, using AES256-GCM). A large, 1 MiB pre-key is also
+kept in memory. The AES key is derived from this pre-key using
+PBKDF2-HMAC-SHA256 and an iteration count that results in ~25ms key derivation.
+While it might seem nonsensical to encrypt memory and have the key right next
+to the encrypted data, the reason for this this is to thwart cold-boot attacks.
+A successful cold-boot attack would require a complete and perfect 1 MiB
+snapshot of the pre-key (or an acquisition in the short timeframe where the
+keyvault is open) -- something that is difficult to do because of naturally
+occuring bit errors during cold boot acquisition.
 
 ## Dependencies
 OpenSSL v1.1 is required for luksrku as well as pkg-config.
