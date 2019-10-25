@@ -62,15 +62,11 @@ int create_udp_socket(unsigned int listen_port, bool send_broadcast) {
 
 	return sd;
 }
-
-bool wait_udp_broadcast_message(int sd, int port, void *data, unsigned int max_length, unsigned int timeout_millis) {
-	struct sockaddr_storage src_addr;
-	socklen_t src_addr_len = sizeof(src_addr);
-
+bool wait_udp_message(int sd, int port, void *data, unsigned int max_length, struct sockaddr_in *source, unsigned int timeout_millis) {
 	fprintf(stderr, "RECV...\n");
-	ssize_t count=recvfrom(sd,data, max_length,0,(struct sockaddr*)&src_addr,&src_addr_len);
-	fprintf(stderr, "RECV %ld\n", count);
-
+	socklen_t socklen = sizeof(struct sockaddr_in);
+	ssize_t rx_bytes = recvfrom(sd,data, max_length, 0, (struct sockaddr*)source, &socklen);
+	fprintf(stderr, "RECV %ld\n", rx_bytes);
 	return true;
 }
 
@@ -86,4 +82,15 @@ bool send_udp_broadcast_message(int sd, int port, const void *data, unsigned int
 		return false;
 	}
 	return true;
+}
+
+bool wait_udp_query(int sd, int port, struct udp_query_t *query, struct sockaddr_in *source, unsigned int timeout_millis) {
+	bool rx_successful = wait_udp_message(sd, port, query, sizeof(struct udp_query_t), source, timeout_millis);
+	if (rx_successful) {
+		/* Also check if the message contains the correct magic */
+		if (!memcmp(query->magic, UDP_MESSAGE_MAGIC, UDP_MESSAGE_MAGIC_SIZE)) {
+			return true;
+		}
+	}
+	return false;
 }

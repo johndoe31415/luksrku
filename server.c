@@ -174,10 +174,11 @@ static void udp_handler_thread(void *vctx) {
 
 	while (true) {
 		struct udp_query_t rx_msg;
-		if (!wait_udp_broadcast_message(client->udp_sd, client->port, &rx_msg, sizeof(rx_msg), 1000)) {
+		struct sockaddr_in origin;
+		if (!wait_udp_query(client->udp_sd, client->port, &rx_msg, &origin, 1000)) {
 			continue;
 		}
-		fprintf(stderr, "RXED!\n");
+		fprintf(stderr, "RXED! query\n");
 	}
 }
 

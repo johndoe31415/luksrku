@@ -25,11 +25,13 @@
 #define __UDP_H__
 
 #include <stdbool.h>
+#include "msg.h"
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 int create_udp_socket(unsigned int listen_port, bool send_broadcast);
-bool wait_udp_broadcast_message(int sd, int port, void *data, unsigned int max_length, unsigned int timeout_millis);
+bool wait_udp_message(int sd, int port, void *data, unsigned int max_length, struct sockaddr_in *source, unsigned int timeout_millis);
 bool send_udp_broadcast_message(int sd, int port, const void *data, unsigned int length);
+bool wait_udp_query(int sd, int port, struct udp_query_t *query, struct sockaddr_in *source, unsigned int timeout_millis);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif

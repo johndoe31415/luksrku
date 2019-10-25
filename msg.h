@@ -27,13 +27,19 @@
 #include <stdint.h>
 #include "global.h"
 
+/* Magic is the prefix of announcement packages. It is the MD5SUM over the
+ * string "luksrku v2". This only changes when the protocol that is spoken
+ * changes. */
+#define UDP_MESSAGE_MAGIC_SIZE								16
+#define UDP_MESSAGE_MAGIC									(const uint8_t[UDP_MESSAGE_MAGIC_SIZE]){ 0x46, 0xf2, 0xf6, 0xc6, 0x63, 0x12, 0x2e, 0x00, 0xa0, 0x8a, 0xae, 0x42, 0x0c, 0x51, 0xf5, 0x65 }
+
 struct udp_query_t {
-	uint8_t magic[16];
+	uint8_t magic[UDP_MESSAGE_MAGIC_SIZE];
 	uint8_t host_uuid[16];
 } __attribute__ ((packed));
 
 struct udp_response_t {
-	uint8_t magic[16];
+	uint8_t magic[UDP_MESSAGE_MAGIC_SIZE];
 } __attribute__ ((packed));
 
 struct msg_t {
