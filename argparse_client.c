@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2019-10-23 20:13:13
+ *   Generated at: 2019-10-25 11:06:30
  */
 
 #include <stdint.h>
@@ -21,19 +21,24 @@
 static enum argparse_client_option_t last_parsed_option;
 static char last_error_message[256];
 static const char *option_texts[] = {
+	[ARG_CLIENT_TIMEOUT] = "-t / --timeout",
 	[ARG_CLIENT_PORT] = "-p / --port",
+	[ARG_CLIENT_NO_LUKS] = "--no-luks",
 	[ARG_CLIENT_VERBOSE] = "-v / --verbose",
 	[ARG_CLIENT_FILENAME] = "filename",
 	[ARG_CLIENT_HOSTNAME] = "hostname",
 };
 
 enum argparse_client_option_internal_t {
+	ARG_CLIENT_TIMEOUT_SHORT = 't',
 	ARG_CLIENT_PORT_SHORT = 'p',
 	ARG_CLIENT_VERBOSE_SHORT = 'v',
-	ARG_CLIENT_PORT_LONG = 1000,
-	ARG_CLIENT_VERBOSE_LONG = 1001,
-	ARG_CLIENT_FILENAME_LONG = 1002,
-	ARG_CLIENT_HOSTNAME_LONG = 1003,
+	ARG_CLIENT_TIMEOUT_LONG = 1000,
+	ARG_CLIENT_PORT_LONG = 1001,
+	ARG_CLIENT_NO_LUKS_LONG = 1002,
+	ARG_CLIENT_VERBOSE_LONG = 1003,
+	ARG_CLIENT_FILENAME_LONG = 1004,
+	ARG_CLIENT_HOSTNAME_LONG = 1005,
 };
 
 static void errmsg_callback(const char *errmsg, ...) {
@@ -54,9 +59,11 @@ static void errmsg_option_callback(enum argparse_client_option_t error_option, c
 
 bool argparse_client_parse(int argc, char **argv, argparse_client_callback_t argument_callback, argparse_client_plausibilization_callback_t plausibilization_callback) {
 	last_parsed_option = ARGPARSE_CLIENT_NO_OPTION;
-	const char *short_options = "p:v";
+	const char *short_options = "t:p:v";
 	struct option long_options[] = {
+		{ "timeout",                          required_argument, 0, ARG_CLIENT_TIMEOUT_LONG },
 		{ "port",                             required_argument, 0, ARG_CLIENT_PORT_LONG },
+		{ "no-luks",                          no_argument, 0, ARG_CLIENT_NO_LUKS_LONG },
 		{ "verbose",                          no_argument, 0, ARG_CLIENT_VERBOSE_LONG },
 		{ "filename",                         required_argument, 0, ARG_CLIENT_FILENAME_LONG },
 		{ "hostname",                         required_argument, 0, ARG_CLIENT_HOSTNAME_LONG },
@@ -71,10 +78,25 @@ bool argparse_client_parse(int argc, char **argv, argparse_client_callback_t arg
 		last_error_message[0] = 0;
 		enum argparse_client_option_internal_t arg = (enum argparse_client_option_internal_t)optval;
 		switch (arg) {
+			case ARG_CLIENT_TIMEOUT_SHORT:
+			case ARG_CLIENT_TIMEOUT_LONG:
+				last_parsed_option = ARG_CLIENT_TIMEOUT;
+				if (!argument_callback(ARG_CLIENT_TIMEOUT, optarg, errmsg_callback)) {
+					return false;
+				}
+				break;
+
 			case ARG_CLIENT_PORT_SHORT:
 			case ARG_CLIENT_PORT_LONG:
 				last_parsed_option = ARG_CLIENT_PORT;
 				if (!argument_callback(ARG_CLIENT_PORT, optarg, errmsg_callback)) {
+					return false;
+				}
+				break;
+
+			case ARG_CLIENT_NO_LUKS_LONG:
+				last_parsed_option = ARG_CLIENT_NO_LUKS;
+				if (!argument_callback(ARG_CLIENT_NO_LUKS, optarg, errmsg_callback)) {
 					return false;
 				}
 				break;
@@ -127,7 +149,7 @@ bool argparse_client_parse(int argc, char **argv, argparse_client_callback_t arg
 }
 
 void argparse_client_show_syntax(void) {
-	fprintf(stderr, "usage: luksrku client [-p port] [-v] filename [hostname]\n");
+	fprintf(stderr, "usage: luksrku client [-t secs] [-p port] [--no-luks] [-v] filename [hostname]\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Connects to a luksrku key server and unlocks local LUKS volumes.\n");
 	fprintf(stderr, "\n");
@@ -139,8 +161,14 @@ void argparse_client_show_syntax(void) {
 	fprintf(stderr, "                        hostname is attempted.\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "optional arguments:\n");
+	fprintf(stderr, "  -t secs, --timeout secs\n");
+	fprintf(stderr, "                        When searching for a keyserver and not all volumes can\n");
+	fprintf(stderr, "                        be unlocked, abort after this period of time, given in\n");
+	fprintf(stderr, "                        seconds. Defaults to 60 seconds.\n");
 	fprintf(stderr, "  -p port, --port port  Port that is used for both UDP and TCP communication.\n");
 	fprintf(stderr, "                        Defaults to 23170.\n");
+	fprintf(stderr, "  --no-luks             Do not call LUKS/cryptsetup. Useful for testing\n");
+	fprintf(stderr, "                        unlocking procedure.\n");
 	fprintf(stderr, "  -v, --verbose         Increase verbosity. Can be specified multiple times.\n");
 }
 
@@ -166,7 +194,9 @@ void argparse_client_parse_or_quit(int argc, char **argv, argparse_client_callba
 
 static const char *option_enum_to_str(enum argparse_client_option_t option) {
 	switch (option) {
+		case ARG_CLIENT_TIMEOUT: return "ARG_CLIENT_TIMEOUT";
 		case ARG_CLIENT_PORT: return "ARG_CLIENT_PORT";
+		case ARG_CLIENT_NO_LUKS: return "ARG_CLIENT_NO_LUKS";
 		case ARG_CLIENT_VERBOSE: return "ARG_CLIENT_VERBOSE";
 		case ARG_CLIENT_FILENAME: return "ARG_CLIENT_FILENAME";
 		case ARG_CLIENT_HOSTNAME: return "ARG_CLIENT_HOSTNAME";

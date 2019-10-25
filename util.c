@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <openssl/evp.h>
 
 #include "util.h"
@@ -210,4 +211,12 @@ bool ascii_encode(char *dest, unsigned int dest_buffer_size, const uint8_t *sour
 	}
 	*dest = 0;
 	return true;
+}
+
+double now(void) {
+	struct timeval tv;
+	if (gettimeofday(&tv, NULL)) {
+		return 0;
+	}
+	return tv.tv_sec + (tv.tv_usec * 1e-6);
 }

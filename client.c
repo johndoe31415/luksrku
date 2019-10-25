@@ -42,12 +42,14 @@
 #include "blacklist.h"
 #include "keydb.h"
 #include "uuid.h"
+#include "udp.h"
 
 struct keyclient_t {
 	const struct pgmopts_client_t *opts;
 	struct keydb_t *keydb;
 	bool volume_unlocked[MAX_VOLUMES_PER_HOST];
 	unsigned char identifier[ASCII_UUID_BUFSIZE];
+	double broadcast_start_time;
 };
 
 static int psk_client_callback(SSL *ssl, const EVP_MD *md, const unsigned char **id, size_t *idlen, SSL_SESSION **sessptr) {
@@ -56,6 +58,36 @@ static int psk_client_callback(SSL *ssl, const EVP_MD *md, const unsigned char *
 	*idlen = ASCII_UUID_CHARACTER_COUNT;
 
 	return openssl_tls13_psk_establish_session(ssl, key_client->keydb->hosts[0].tls_psk, PSK_SIZE_BYTES, EVP_sha256(), sessptr);
+}
+
+static bool do_unlock_luks_volume(const struct volume_entry_t *volume, const struct msg_t *unlock_msg) {
+	return true;
+}
+
+static bool unlock_luks_volume(struct keyclient_t *keyclient, const struct msg_t *unlock_msg) {
+	const struct host_entry_t *host = &keyclient->keydb->hosts[0];
+	const struct volume_entry_t* volume = keydb_get_volume_by_uuid(host, unlock_msg->volume_uuid);
+	if (!volume) {
+		char volume_uuid_str[ASCII_UUID_BUFSIZE];
+		sprintf_uuid(volume_uuid_str, unlock_msg->volume_uuid);
+		log_msg(LLVL_WARNING, "Keyserver provided key for unlocking volume UUID %s, but this volume does not need unlocking on the client side.", volume_uuid_str);
+		return false;
+	}
+
+	/* Volume! */
+	int volume_index = keydb_get_volume_index(host, volume);
+	if (volume_index != -1) {
+		if (keyclient->opts->no_luks) {
+			keyclient->volume_unlocked[volume_index] = true;
+		} else {
+			keyclient->volume_unlocked[volume_index] = do_unlock_luks_volume(volume, unlock_msg);
+		}
+	} else {
+		log_msg(LLVL_FATAL, "Error calculating volume offset for volume %p from base %p.", volume, host->volumes);
+		return false;
+	}
+
+	return true;
 }
 
 static bool contact_keyserver_socket(struct keyclient_t *keyclient, int sd) {
@@ -83,10 +115,13 @@ static bool contact_keyserver_socket(struct keyclient_t *keyclient, int sd) {
 					log_openssl(LLVL_FATAL, "SSL_read returned %d bytes when we expected to read %d", bytes_read, sizeof(msg));
 					break;
 				}
-				if (should_log(LLVL_TRACE)) {
-					char uuid_str[ASCII_UUID_BUFSIZE];
-					sprintf_uuid(uuid_str, msg.volume_uuid);
-					log_msg(LLVL_TRACE, "Received LUKS key to unlock volume with UUID %s", uuid_str);
+				char uuid_str[ASCII_UUID_BUFSIZE];
+				sprintf_uuid(uuid_str, msg.volume_uuid);
+				log_msg(LLVL_TRACE, "Received LUKS key to unlock volume with UUID %s", uuid_str);
+				if (unlock_luks_volume(keyclient, &msg)) {
+					log_msg(LLVL_DEBUG, "Successfully unlocked volume with UUID %s", uuid_str);
+				} else {
+					log_msg(LLVL_ERROR, "Failed to unlocked volume with UUID %s", uuid_str);
 				}
 			}
 			OPENSSL_cleanse(&msg, sizeof(msg));
@@ -152,50 +187,62 @@ static bool contact_keyserver_hostname(struct keyclient_t *keyclient, const char
 	return success;
 }
 
-static int create_udp_socket(void) {
-	int sd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sd < 0) {
-		log_libc(LLVL_ERROR, "Unable to create UDP server socket(2)");
-		return -1;
-	}
-	{
-		int value = 1;
-		if (setsockopt(sd, SOL_SOCKET, SO_BROADCAST, &value, sizeof(value))) {
-			log_libc(LLVL_ERROR, "Unable to set UDP socket in broadcast mode using setsockopt(2)");
-			close(sd);
-			return -1;
+static bool all_volumes_unlocked(struct keyclient_t *keyclient) {
+	const unsigned int volume_count = keyclient->keydb->hosts[0].volume_count;
+	for (unsigned int i = 0; i < volume_count; i++) {
+		if (!keyclient->volume_unlocked[i]) {
+			return false;
 		}
-	}
-	return sd;
-}
-
-static bool send_udp_broadcast_message(int sd, unsigned int port, const void *data, unsigned int length) {
-	struct sockaddr_in destination;
-	memset(&destination, 0, sizeof(struct sockaddr_in));
-	destination.sin_family = AF_INET;
-	destination.sin_port = htons(port);
-	destination.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-
-	if (sendto(sd, data, length, 0, (struct sockaddr *)&destination, sizeof(struct sockaddr_in)) < 0) {
-		log_libc(LLVL_ERROR, "Unable to sendto(2)");
-		return false;
 	}
 	return true;
 }
 
+static bool abort_searching_for_keyserver(struct keyclient_t *keyclient) {
+	if (all_volumes_unlocked(keyclient)) {
+		log_msg(LLVL_DEBUG, "All volumes unlocked successfully.");
+		return true;
+	}
+
+	if (keyclient->opts->timeout_seconds) {
+		double time_passed = now() - keyclient->broadcast_start_time;
+		if (time_passed >= keyclient->opts->timeout_seconds) {
+			log_msg(LLVL_WARNING, "Could not unlock all volumes after %u seconds, giving up.", keyclient->opts->timeout_seconds);
+			return true;
+		}
+	}
+
+	return false;
+}
 
 static bool broadcast_for_keyserver(struct keyclient_t *keyclient) {
-	int sd = create_udp_socket();
+	int sd = create_udp_socket(0, true, 1000);
 	if (sd == -1) {
 		return false;
 	}
 
+	keyclient->broadcast_start_time = now();
 	struct udp_query_t query;
 	memcpy(query.magic, UDP_MESSAGE_MAGIC, sizeof(query.magic));
 	memcpy(query.host_uuid, keyclient->keydb->hosts[0].host_uuid, 16);
 	while (true) {
 		send_udp_broadcast_message(sd, keyclient->opts->port, &query, sizeof(query));
-		sleep(1);
+
+		struct sockaddr_in src = {
+			.sin_family = AF_INET,
+			.sin_port = htons(keyclient->opts->port),
+			.sin_addr.s_addr = htonl(INADDR_ANY),
+		};
+		struct udp_response_t response;
+		if (wait_udp_response(sd, &response, &src)) {
+			log_msg(LLVL_DEBUG, "Potential keyserver found at %d.%d.%d.%d", PRINTF_FORMAT_IP(&src));
+			if (!contact_keyserver_ipv4(keyclient, &src, keyclient->opts->port)) {
+				log_msg(LLVL_WARNING, "Keyserver announced at %d.%d.%d.%d, but connection to it failed.", PRINTF_FORMAT_IP(&src));
+			}
+		}
+
+		if (abort_searching_for_keyserver(keyclient)) {
+			break;
+		}
 	}
 	return true;
 }

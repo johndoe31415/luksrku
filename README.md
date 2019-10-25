@@ -22,7 +22,7 @@ passphrases are based on 256 bit long secrets and are converted to Base64 for
 easier handling (when setting up everything initially).
 
 The binary protocol that runs between both is intentionally extremely simple to
-allow for easy code review.
+allow for easy code review. It exclusively uses fixed message lengths.
 
 The key database is encrypted itself, using AES256-GCM, a 128 bit randomized
 initialization vector and authenticated with a 128 bit authentication tag. Key

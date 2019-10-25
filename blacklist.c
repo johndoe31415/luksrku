@@ -24,19 +24,11 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <sys/time.h>
 #include "blacklist.h"
 #include "global.h"
+#include "util.h"
 
 static struct blacklist_entry_t blacklist[BLACKLIST_ENTRY_COUNT];
-
-static double now(void) {
-	struct timeval tv;
-	if (gettimeofday(&tv, NULL)) {
-		return 0;
-	}
-	return tv.tv_sec + (tv.tv_usec * 1e-6);
-}
 
 static bool blacklist_entry_expired(int index) {
 	return now() > blacklist[index].entered + BLACKLIST_ENTRY_TIMEOUT_SECS;

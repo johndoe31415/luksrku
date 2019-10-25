@@ -48,7 +48,7 @@ test_s: luksrku
 	./luksrku server -vv testdata/server.bin
 
 test_c: luksrku
-	./luksrku client -vv testdata/client.bin
+	./luksrku client -vv --no-luks testdata/client.bin
 
 .c.o:
 	$(CC) $(CFLAGS) -c -o $@ $<

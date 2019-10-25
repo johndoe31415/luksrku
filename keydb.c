@@ -105,6 +105,26 @@ struct volume_entry_t* keydb_get_volume_by_name(struct host_entry_t *host, const
 	return (index >= 0) ? &host->volumes[index] : NULL;
 }
 
+const struct volume_entry_t* keydb_get_volume_by_uuid(const struct host_entry_t *host, const uint8_t uuid[static 16]) {
+	for (unsigned int i = 0; i < host->volume_count; i++) {
+		const struct volume_entry_t *volume = &host->volumes[i];
+		if (!memcmp(volume->volume_uuid, uuid, 16)) {
+			return volume;
+		}
+	}
+	return NULL;
+}
+
+int keydb_get_volume_index(const struct host_entry_t *host, const struct volume_entry_t *volume) {
+	int offset = volume - host->volumes;
+	if (offset < 0) {
+		return -1;
+	} else if ((unsigned int)offset >= host->volume_count) {
+		return -1;
+	}
+	return offset;
+}
+
 struct host_entry_t* keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name) {
 	const int index = keydb_get_host_index_by_name(keydb, host_name);
 	return (index >= 0) ? &keydb->hosts[index] : NULL;

@@ -28,7 +28,7 @@
 #include <stdbool.h>
 
 #define BLACKLIST_ENTRY_COUNT								32
-#define BLACKLIST_ENTRY_TIMEOUT_SECS						60
+#define BLACKLIST_ENTRY_TIMEOUT_SECS						15
 
 struct blacklist_entry_t {
 	uint32_t ip;

@@ -27,12 +27,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 #include <arpa/inet.h>
 
 #include "log.h"
 #include "udp.h"
 
-int create_udp_socket(unsigned int listen_port, bool send_broadcast) {
+int create_udp_socket(unsigned int listen_port, bool send_broadcast, unsigned int rx_timeout_millis) {
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sd < 0) {
 		log_libc(LLVL_ERROR, "Unable to create UDP server socket(2)");
@@ -59,10 +60,21 @@ int create_udp_socket(unsigned int listen_port, bool send_broadcast) {
 			return -1;
 		}
 	}
+	if (rx_timeout_millis) {
+		struct timeval tv = {
+			.tv_sec = rx_timeout_millis / 1000,
+			.tv_usec = (rx_timeout_millis % 1000) * 1000,
+		};
+		if (setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+			log_libc(LLVL_ERROR, "Unable to set UDP receive timeout to %u ms.", rx_timeout_millis);
+			close(sd);
+			return -1;
+		}
+	}
 
 	return sd;
 }
-bool wait_udp_message(int sd, int port, void *data, unsigned int length, struct sockaddr_in *source, unsigned int timeout_millis) {
+bool wait_udp_message(int sd, void *data, unsigned int length, struct sockaddr_in *source) {
 	fprintf(stderr, "RECV...\n");
 	socklen_t socklen = sizeof(struct sockaddr_in);
 	ssize_t rx_bytes = recvfrom(sd,data, length, 0, (struct sockaddr*)source, &socklen);
@@ -92,11 +104,22 @@ bool send_udp_broadcast_message(int sd, int port, const void *data, unsigned int
 	return send_udp_message(sd, &destination, data, length, false);
 }
 
-bool wait_udp_query(int sd, int port, struct udp_query_t *query, struct sockaddr_in *source, unsigned int timeout_millis) {
-	bool rx_successful = wait_udp_message(sd, port, query, sizeof(struct udp_query_t), source, timeout_millis);
+bool wait_udp_query(int sd, struct udp_query_t *query, struct sockaddr_in *source) {
+	bool rx_successful = wait_udp_message(sd, query, sizeof(struct udp_query_t), source);
 	if (rx_successful) {
 		/* Also check if the message contains the correct magic */
 		if (!memcmp(query->magic, UDP_MESSAGE_MAGIC, UDP_MESSAGE_MAGIC_SIZE)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool wait_udp_response(int sd, struct udp_response_t *response, struct sockaddr_in *source) {
+	bool rx_successful = wait_udp_message(sd, response, sizeof(struct udp_response_t), source);
+	if (rx_successful) {
+		/* Also check if the message contains the correct magic */
+		if (!memcmp(response->magic, UDP_MESSAGE_MAGIC, UDP_MESSAGE_MAGIC_SIZE)) {
 			return true;
 		}
 	}

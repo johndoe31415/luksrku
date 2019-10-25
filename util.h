@@ -43,6 +43,7 @@ bool buffer_randomize(uint8_t *buffer, unsigned int length);
 bool is_zero(const void *data, unsigned int length);
 bool array_remove(void *base, unsigned int element_size, unsigned int element_count, unsigned int remove_element_index);
 bool ascii_encode(char *dest, unsigned int dest_buffer_size, const uint8_t *source_data, unsigned int source_data_length);
+double now(void);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif

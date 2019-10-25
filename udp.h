@@ -28,11 +28,12 @@
 #include "msg.h"
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-int create_udp_socket(unsigned int listen_port, bool send_broadcast);
-bool wait_udp_message(int sd, int port, void *data, unsigned int length, struct sockaddr_in *source, unsigned int timeout_millis);
+int create_udp_socket(unsigned int listen_port, bool send_broadcast, unsigned int rx_timeout_millis);
+bool wait_udp_message(int sd, void *data, unsigned int length, struct sockaddr_in *source);
 bool send_udp_message(int sd, struct sockaddr_in *destination, const void *data, unsigned int length, bool is_response);
 bool send_udp_broadcast_message(int sd, int port, const void *data, unsigned int length);
-bool wait_udp_query(int sd, int port, struct udp_query_t *query, struct sockaddr_in *source, unsigned int timeout_millis);
+bool wait_udp_query(int sd, struct udp_query_t *query, struct sockaddr_in *source);
+bool wait_udp_response(int sd, struct udp_response_t *response, struct sockaddr_in *source);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif

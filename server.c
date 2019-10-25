@@ -176,7 +176,7 @@ static void udp_handler_thread(void *vctx) {
 	while (true) {
 		struct udp_query_t rx_msg;
 		struct sockaddr_in origin;
-		if (!wait_udp_query(client->udp_sd, client->port, &rx_msg, &origin, 1000)) {
+		if (!wait_udp_query(client->udp_sd, &rx_msg, &origin)) {
 			continue;
 		}
 
@@ -240,7 +240,7 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 		}
 
 		if (opts->answer_udp_queries) {
-			keyserver.udp_sd = create_udp_socket(opts->port, false);
+			keyserver.udp_sd = create_udp_socket(opts->port, false, 1000);
 			if (keyserver.udp_sd == -1) {
 				success = false;
 				break;

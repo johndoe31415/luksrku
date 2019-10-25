@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2019-10-23 20:13:13
+ *   Generated at: 2019-10-25 11:06:30
  */
 
 #ifndef __ARGPARSE_CLIENT_H__
@@ -13,6 +13,7 @@
 
 #include <stdbool.h>
 
+#define ARGPARSE_CLIENT_DEFAULT_TIMEOUT		60
 #define ARGPARSE_CLIENT_DEFAULT_PORT		23170
 #define ARGPARSE_CLIENT_DEFAULT_VERBOSE		0
 
@@ -20,10 +21,12 @@
 #define ARGPARSE_CLIENT_POSITIONAL_ARG	1
 
 enum argparse_client_option_t {
-	ARG_CLIENT_PORT = 2,
-	ARG_CLIENT_VERBOSE = 3,
-	ARG_CLIENT_FILENAME = 4,
-	ARG_CLIENT_HOSTNAME = 5,
+	ARG_CLIENT_TIMEOUT = 2,
+	ARG_CLIENT_PORT = 3,
+	ARG_CLIENT_NO_LUKS = 4,
+	ARG_CLIENT_VERBOSE = 5,
+	ARG_CLIENT_FILENAME = 6,
+	ARG_CLIENT_HOSTNAME = 7,
 };
 
 typedef void (*argparse_client_errmsg_callback_t)(const char *errmsg, ...);

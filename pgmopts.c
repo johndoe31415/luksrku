@@ -97,6 +97,14 @@ static bool client_callback(enum argparse_client_option_t option, const char *va
 			pgmopts_rw.client.port = atoi(value);
 			break;
 
+		case ARG_CLIENT_TIMEOUT:
+			pgmopts_rw.client.timeout_seconds = atoi(value);
+			break;
+
+		case ARG_CLIENT_NO_LUKS:
+			pgmopts_rw.client.no_luks = true;
+			break;
+
 		case ARG_CLIENT_VERBOSE:
 			pgmopts_rw.client.verbosity++;
 			break;
