@@ -35,7 +35,7 @@ static struct luks_passphrase_vault_entry_t *vaulted_keydb_get_luks_passphrase_f
 	return ((struct luks_passphrase_vault_entry_t*)vkeydb->luks_passphrase_vault->data) + host_index;
 }
 
-static void copy_data_into_vault(struct vaulted_keydb_t *dest, struct keydb_t *src) {
+static void move_data_into_vault(struct vaulted_keydb_t *dest, struct keydb_t *src) {
 	for (unsigned int i = 0; i < src->host_count; i++) {
 		struct host_entry_t *host = &src->hosts[i];
 
@@ -54,15 +54,67 @@ static void copy_data_into_vault(struct vaulted_keydb_t *dest, struct keydb_t *s
 	}
 }
 
-static void erase_key_data_from_keydb(struct keydb_t *keydb) {
-	for (unsigned int i = 0; i < keydb->host_count; i++) {
-		struct host_entry_t *host = &keydb->hosts[i];
-		OPENSSL_cleanse(host->tls_psk, PSK_SIZE_BYTES);
-		for (unsigned int j = 0; j < host->volume_count; j++) {
-			struct volume_entry_t *volume = &host->volumes[j];
-			OPENSSL_cleanse(volume->luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
-		}
+bool vaulted_keydb_get_tls_psk(struct vaulted_keydb_t *vaulted_keydb, uint8_t dest[PSK_SIZE_BYTES], const struct host_entry_t *host) {
+	int host_index = keydb_get_host_index(vaulted_keydb->keydb, host);
+	if (host_index < 0) {
+		log_msg(LLVL_FATAL, "Unable to retrieve host index for vaulted key db entry.");
+		return false;
 	}
+
+	/* Get a pointer into the vaulted structure */
+	struct tls_psk_vault_entry_t *entry = vaulted_keydb_get_tls_psk_for_hostindex(vaulted_keydb, host_index);
+
+	/* Then decrypt vault */
+	if (!vault_open(vaulted_keydb->tls_psk_vault)) {
+		log_msg(LLVL_FATAL, "Unable to open TLS-PSK vault of vaulted key db entry.");
+		return false;
+	}
+
+	/* Copy out the data we need */
+	memcpy(dest, &entry->tls_psk, PSK_SIZE_BYTES);
+
+	/* And close it back up */
+	if (!vault_close(vaulted_keydb->tls_psk_vault)) {
+		OPENSSL_cleanse(dest, PSK_SIZE_BYTES);
+		log_msg(LLVL_FATAL, "Unable to close TLS-PSK vault of vaulted key db entry.");
+		return false;
+	}
+
+	return true;
+}
+
+bool vaulted_keydb_get_volume_luks_passphase_raw(struct vaulted_keydb_t *vaulted_keydb, uint8_t dest[LUKS_PASSPHRASE_RAW_SIZE_BYTES], const struct host_entry_t *host, const struct volume_entry_t *volume) {
+	int host_index = keydb_get_host_index(vaulted_keydb->keydb, host);
+	if (host_index < 0) {
+		log_msg(LLVL_FATAL, "Unable to retrieve host index for vaulted key db entry.");
+		return false;
+	}
+
+	int volume_index = keydb_get_volume_index(host, volume);
+	if (volume_index < 0) {
+		log_msg(LLVL_FATAL, "Unable to retrieve volume index for vaulted key db entry.");
+		return false;
+	}
+
+	/* Get a pointer into the vaulted structure */
+	struct luks_passphrase_vault_entry_t *entry = vaulted_keydb_get_luks_passphrase_for_hostindex(vaulted_keydb, host_index);
+
+	/* Then decrypt vault */
+	if (!vault_open(vaulted_keydb->luks_passphrase_vault)) {
+		log_msg(LLVL_FATAL, "Unable to open LUKS passphrase vault of vaulted key db entry.");
+		return false;
+	}
+
+	/* Copy out the data we need */
+	memcpy(dest, &entry->volumes[volume_index].luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
+
+	/* And close it back up */
+	if (!vault_close(vaulted_keydb->luks_passphrase_vault)) {
+		OPENSSL_cleanse(dest, PSK_SIZE_BYTES);
+		log_msg(LLVL_FATAL, "Unable to close LUKS passphrase vault of vaulted key db entry.");
+		return false;
+	}
+	return true;
 }
 
 struct vaulted_keydb_t *vaulted_keydb_new(struct keydb_t *keydb) {
@@ -74,25 +126,23 @@ struct vaulted_keydb_t *vaulted_keydb_new(struct keydb_t *keydb) {
 
 	vaulted_keydb->keydb = keydb;
 
-	vaulted_keydb->tls_psk_vault = vault_init(sizeof(struct tls_psk_vault_entry_t) * keydb->host_count, 0.1);
+	vaulted_keydb->tls_psk_vault = vault_init(sizeof(struct tls_psk_vault_entry_t) * keydb->host_count, 0.025);
 	if (!vaulted_keydb->tls_psk_vault) {
 		log_msg(LLVL_FATAL, "Unable to create TLS-PSK vault");
 		vaulted_keydb_free(vaulted_keydb);
 		return NULL;
 	}
 
-	vaulted_keydb->luks_passphrase_vault = vault_init(sizeof(struct luks_passphrase_vault_entry_t) * keydb->host_count, 0.1);
+	vaulted_keydb->luks_passphrase_vault = vault_init(sizeof(struct luks_passphrase_vault_entry_t) * keydb->host_count, 0.025);
 	if (!vaulted_keydb->luks_passphrase_vault) {
 		log_msg(LLVL_FATAL, "Unable to create LUKS passphrase vault");
 		vaulted_keydb_free(vaulted_keydb);
 		return NULL;
 	}
 
-	/* Now copy over data from the original KeyDB */
-	copy_data_into_vault(vaulted_keydb, keydb);
-
-	/* Then erase original key data */
-	erase_key_data_from_keydb(keydb);
+	/* Now move data from the original keydb into the vaulted keydb (erase
+	 * original keys) */
+	move_data_into_vault(vaulted_keydb, keydb);
 
 	/* Finally, close the vaults */
 	if (!vault_close(vaulted_keydb->tls_psk_vault)) {

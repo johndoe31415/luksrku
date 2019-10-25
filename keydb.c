@@ -80,29 +80,24 @@ void keydb_free(struct keydb_t *keydb) {
 	}
 }
 
-static int keydb_get_volume_index_by_name(struct host_entry_t *host, const char *devmapper_name) {
+struct volume_entry_t* keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name) {
 	for (unsigned int i = 0; i < host->volume_count; i++) {
 		struct volume_entry_t *volume = &host->volumes[i];
 		if (!strncasecmp(volume->devmapper_name, devmapper_name, sizeof(volume->devmapper_name) - 1)) {
-			return i;
+			return volume;
 		}
 	}
-	return -1;
+	return NULL;
 }
 
-static int keydb_get_host_index_by_name(struct keydb_t *keydb, const char *host_name) {
+struct host_entry_t* keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name) {
 	for (unsigned int i = 0; i < keydb->host_count; i++) {
 		struct host_entry_t *host = &keydb->hosts[i];
 		if (!strncasecmp(host->host_name, host_name, sizeof(host->host_name) - 1)) {
-			return i;
+			return host;
 		}
 	}
-	return -1;
-}
-
-struct volume_entry_t* keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name) {
-	const int index = keydb_get_volume_index_by_name(host, devmapper_name);
-	return (index >= 0) ? &host->volumes[index] : NULL;
+	return NULL;
 }
 
 const struct volume_entry_t* keydb_get_volume_by_uuid(const struct host_entry_t *host, const uint8_t uuid[static 16]) {
@@ -115,19 +110,24 @@ const struct volume_entry_t* keydb_get_volume_by_uuid(const struct host_entry_t 
 	return NULL;
 }
 
-int keydb_get_volume_index(const struct host_entry_t *host, const struct volume_entry_t *volume) {
-	int offset = volume - host->volumes;
-	if (offset < 0) {
+int keydb_get_host_index(const struct keydb_t *keydb, const struct host_entry_t *host) {
+	int index = host - keydb->hosts;
+	if (index < 0) {
 		return -1;
-	} else if ((unsigned int)offset >= host->volume_count) {
+	} else if ((unsigned int)index >= keydb ->host_count) {
 		return -1;
 	}
-	return offset;
+	return index;
 }
 
-struct host_entry_t* keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name) {
-	const int index = keydb_get_host_index_by_name(keydb, host_name);
-	return (index >= 0) ? &keydb->hosts[index] : NULL;
+int keydb_get_volume_index(const struct host_entry_t *host, const struct volume_entry_t *volume) {
+	int index = volume - host->volumes;
+	if (index < 0) {
+		return -1;
+	} else if ((unsigned int)index >= host->volume_count) {
+		return -1;
+	}
+	return index;
 }
 
 const struct host_entry_t* keydb_get_host_by_uuid(const struct keydb_t *keydb, const uint8_t uuid[static 16]) {
@@ -176,9 +176,15 @@ bool keydb_add_host(struct keydb_t **keydb, const char *host_name) {
 
 bool keydb_del_host_by_name(struct keydb_t **keydb, const char *host_name) {
 	struct keydb_t *old_keydb = *keydb;
-	int host_index = keydb_get_host_index_by_name(old_keydb, host_name);
-	if (host_index == -1) {
+	struct host_entry_t *host = keydb_get_host_by_name(old_keydb, host_name);
+	if (!host) {
 		log_msg(LLVL_ERROR, "No such host: \"%s\"", host_name);
+		return false;
+	}
+
+	int host_index = keydb_get_host_index(old_keydb, host);
+	if (host_index < 0) {
+		log_msg(LLVL_FATAL, "Fatal error determining host index of \"%s\" for host \"%s\".", host_name);
 		return false;
 	}
 
@@ -219,9 +225,14 @@ struct volume_entry_t* keydb_add_volume(struct host_entry_t *host, const char *d
 }
 
 bool keydb_del_volume(struct host_entry_t *host, const char *devmapper_name) {
-	int index = keydb_get_volume_index_by_name(host, devmapper_name);
-	if (index == -1) {
+	struct volume_entry_t *volume = keydb_get_volume_by_name(host, devmapper_name);
+	if (!volume) {
 		log_msg(LLVL_ERROR, "No such volume \"%s\" for host \"%s\".", devmapper_name, host->host_name);
+		return false;
+	}
+	int index = keydb_get_volume_index(host, volume);
+	if (index < 0) {
+		log_msg(LLVL_FATAL, "Fatal error determining volume index of \"%s\" for host \"%s\".", devmapper_name, host->host_name);
 		return false;
 	}
 	if (!array_remove(host->volumes, sizeof(struct volume_entry_t), host->volume_count, index)) {
