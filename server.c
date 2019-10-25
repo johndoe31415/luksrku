@@ -187,7 +187,7 @@ static void udp_handler_thread(void *vctx) {
 		if (is_ip_blacklisted(ipv4)) {
 			continue;
 		}
-		blacklist_ip(ipv4);
+		blacklist_ip(ipv4, BLACKLIST_TIMEOUT_SERVER);
 
 		/* Check if we have this host in our database */
 		if (keydb_get_host_by_uuid(client->keydb, rx_msg.host_uuid)) {

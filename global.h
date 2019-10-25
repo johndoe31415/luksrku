@@ -24,6 +24,10 @@
 #ifndef __GLOBAL_H__
 #define __GLOBAL_H__
 
+/* Blacklisting timeouts in seconds */
+#define BLACKLIST_TIMEOUT_CLIENT							3600
+#define BLACKLIST_TIMEOUT_SERVER							15
+
 /* Size in bytes of the PSK that is used for TLS */
 #define PSK_SIZE_BYTES										32
 

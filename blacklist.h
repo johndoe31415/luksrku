@@ -28,15 +28,14 @@
 #include <stdbool.h>
 
 #define BLACKLIST_ENTRY_COUNT								32
-#define BLACKLIST_ENTRY_TIMEOUT_SECS						15
 
 struct blacklist_entry_t {
 	uint32_t ip;
-	double entered;
+	double timeout;
 };
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-void blacklist_ip(uint32_t ip);
+void blacklist_ip(uint32_t ip, unsigned int timeout_seconds);
 bool is_ip_blacklisted(uint32_t ip);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 

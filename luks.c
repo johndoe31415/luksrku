@@ -1,6 +1,6 @@
 /*
 	luksrku - Tool to remotely unlock LUKS disks using TLS.
-	Copyright (C) 2016-2016 Johannes Bauer
+	Copyright (C) 2016-2019 Johannes Bauer
 
 	This file is part of luksrku.
 
@@ -34,6 +34,7 @@
 #include "log.h"
 #include "exec.h"
 #include "util.h"
+#include "uuid.h"
 
 bool is_luks_device_opened(const char *mapping_name) {
 	const char *command[] = {
@@ -42,7 +43,7 @@ bool is_luks_device_opened(const char *mapping_name) {
 		mapping_name,
 		NULL,
 	};
-	struct runresult_t runresult = exec_command(command, should_log(LLVL_DEBUG));
+	struct runresult_t runresult = exec_command(command, should_log(LLVL_TRACE));
 	return runresult.success && (runresult.returncode == 0);
 }
 
@@ -86,7 +87,7 @@ static bool wipe_passphrase_file(const char *filename, int length) {
 	return true;
 }
 
-static const char *write_passphrase_file(const uint8_t *passphrase, int passphrase_length) {
+static const char *write_passphrase_file(const void *passphrase, int passphrase_length) {
 	//const char *filename = "/dev/shm/luksrku_passphrase.bin";		/* TODO make this variable */
 	const char *filename = "/tmp/luksrku_passphrase.bin";
 	int fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 0600);
@@ -106,7 +107,7 @@ static const char *write_passphrase_file(const uint8_t *passphrase, int passphra
 	return filename;
 }
 
-bool open_luks_device_pw(const uint8_t *encrypted_device_uuid, const char *mapping_name, const uint8_t *passphrase, int passphrase_length) {
+bool open_luks_device_pw(const uint8_t *encrypted_device_uuid, const char *mapping_name, const char *passphrase, unsigned int passphrase_length) {
 	const char *pw_filename = write_passphrase_file(passphrase, passphrase_length);
 	if (!pw_filename) {
 		return false;

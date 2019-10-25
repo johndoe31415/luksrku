@@ -75,10 +75,8 @@ int create_udp_socket(unsigned int listen_port, bool send_broadcast, unsigned in
 	return sd;
 }
 bool wait_udp_message(int sd, void *data, unsigned int length, struct sockaddr_in *source) {
-	fprintf(stderr, "RECV...\n");
 	socklen_t socklen = sizeof(struct sockaddr_in);
 	ssize_t rx_bytes = recvfrom(sd,data, length, 0, (struct sockaddr*)source, &socklen);
-	fprintf(stderr, "RECV %ld\n", rx_bytes);
 	return rx_bytes == length;
 }
 

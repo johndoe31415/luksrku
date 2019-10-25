@@ -10,6 +10,7 @@ CFLAGS += -ggdb3 -DDEBUG -fsanitize=address -fsanitize=undefined -fsanitize=leak
 PYPGMOPTS := ../Python/pypgmopts/pypgmopts
 
 LDFLAGS := `pkg-config --libs openssl`
+TEST_PREFIX := local
 
 OBJS := \
 	argparse_client.o \
@@ -18,9 +19,11 @@ OBJS := \
 	blacklist.o \
 	client.o \
 	editor.o \
+	exec.o \
 	file_encryption.o \
 	keydb.o \
 	log.o \
+	luks.o \
 	luksrku.o \
 	openssl.o \
 	pgmopts.o \
@@ -45,10 +48,10 @@ clean:
 	rm -f $(OBJS) $(OBJS_CFG) luksrku
 
 test_s: luksrku
-	./luksrku server -vv testdata/server.bin
+	./luksrku server -vv testdata/$(TEST_PREFIX)_server.bin
 
 test_c: luksrku
-	./luksrku client -vv --no-luks testdata/client.bin
+	./luksrku client -vv --no-luks testdata/$(TEST_PREFIX)_client.bin
 
 .c.o:
 	$(CC) $(CFLAGS) -c -o $@ $<

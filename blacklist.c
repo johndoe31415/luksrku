@@ -31,14 +31,14 @@
 static struct blacklist_entry_t blacklist[BLACKLIST_ENTRY_COUNT];
 
 static bool blacklist_entry_expired(int index) {
-	return now() > blacklist[index].entered + BLACKLIST_ENTRY_TIMEOUT_SECS;
+	return now() > blacklist[index].timeout;
 }
 
-void blacklist_ip(uint32_t ip) {
+void blacklist_ip(uint32_t ip, unsigned int timeout_seconds) {
 	for (int i = 0; i < BLACKLIST_ENTRY_COUNT; i++) {
 		if (blacklist_entry_expired(i)) {
 			blacklist[i].ip = ip;
-			blacklist[i].entered = now();
+			blacklist[i].timeout = now() + timeout_seconds;
 			return;
 		}
 	}

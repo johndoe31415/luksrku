@@ -43,6 +43,7 @@
 #include "keydb.h"
 #include "uuid.h"
 #include "udp.h"
+#include "luks.h"
 
 struct keyclient_t {
 	const struct pgmopts_client_t *opts;
@@ -60,17 +61,26 @@ static int psk_client_callback(SSL *ssl, const EVP_MD *md, const unsigned char *
 	return openssl_tls13_psk_establish_session(ssl, key_client->keydb->hosts[0].tls_psk, PSK_SIZE_BYTES, EVP_sha256(), sessptr);
 }
 
-static bool do_unlock_luks_volume(const struct volume_entry_t *volume, const struct msg_t *unlock_msg) {
-	return true;
+static bool unlock_luks_volume(const struct volume_entry_t *volume, const struct msg_t *unlock_msg) {
+	bool success = true;
+	char luks_passphrase[LUKS_PASSPHRASE_TEXT_SIZE_BYTES];
+	if (ascii_encode(luks_passphrase, sizeof(luks_passphrase), unlock_msg->luks_passphrase_raw, sizeof(unlock_msg->luks_passphrase_raw))) {
+		success = open_luks_device_pw(volume->volume_uuid, volume->devmapper_name, luks_passphrase, strlen(luks_passphrase));
+	} else {
+		log_msg(LLVL_FATAL, "Failed to transcribe raw LUKS passphrase to text form.");
+		success = false;
+	}
+	OPENSSL_cleanse(luks_passphrase, sizeof(luks_passphrase));
+	return success;
 }
 
-static bool unlock_luks_volume(struct keyclient_t *keyclient, const struct msg_t *unlock_msg) {
+static bool attempt_unlock_luks_volume(struct keyclient_t *keyclient, const struct msg_t *unlock_msg) {
 	const struct host_entry_t *host = &keyclient->keydb->hosts[0];
 	const struct volume_entry_t* volume = keydb_get_volume_by_uuid(host, unlock_msg->volume_uuid);
+	char volume_uuid_str[ASCII_UUID_BUFSIZE];
+	sprintf_uuid(volume_uuid_str, unlock_msg->volume_uuid);
 	if (!volume) {
-		char volume_uuid_str[ASCII_UUID_BUFSIZE];
-		sprintf_uuid(volume_uuid_str, unlock_msg->volume_uuid);
-		log_msg(LLVL_WARNING, "Keyserver provided key for unlocking volume UUID %s, but this volume does not need unlocking on the client side.", volume_uuid_str);
+		log_msg(LLVL_WARNING, "Keyserver provided key for unlocking volume UUID %s, but this volume is not known on the client side.", volume_uuid_str);
 		return false;
 	}
 
@@ -80,7 +90,16 @@ static bool unlock_luks_volume(struct keyclient_t *keyclient, const struct msg_t
 		if (keyclient->opts->no_luks) {
 			keyclient->volume_unlocked[volume_index] = true;
 		} else {
-			keyclient->volume_unlocked[volume_index] = do_unlock_luks_volume(volume, unlock_msg);
+			if (!keyclient->volume_unlocked[volume_index]) {
+				bool success = unlock_luks_volume(volume, unlock_msg);
+				keyclient->volume_unlocked[volume_index] = success;
+				if (!success) {
+					log_msg(LLVL_ERROR, "Unlocking of volume %s / %s failed with the server-provided passphrase.", volume->devmapper_name, volume_uuid_str);
+					return false;
+				}
+			} else {
+				log_msg(LLVL_WARNING, "Volume %s / %s already unlocked, not attemping to unlock again.", volume->devmapper_name, volume_uuid_str);
+			}
 		}
 	} else {
 		log_msg(LLVL_FATAL, "Error calculating volume offset for volume %p from base %p.", volume, host->volumes);
@@ -118,7 +137,7 @@ static bool contact_keyserver_socket(struct keyclient_t *keyclient, int sd) {
 				char uuid_str[ASCII_UUID_BUFSIZE];
 				sprintf_uuid(uuid_str, msg.volume_uuid);
 				log_msg(LLVL_TRACE, "Received LUKS key to unlock volume with UUID %s", uuid_str);
-				if (unlock_luks_volume(keyclient, &msg)) {
+				if (attempt_unlock_luks_volume(keyclient, &msg)) {
 					log_msg(LLVL_DEBUG, "Successfully unlocked volume with UUID %s", uuid_str);
 				} else {
 					log_msg(LLVL_ERROR, "Failed to unlocked volume with UUID %s", uuid_str);
@@ -187,14 +206,19 @@ static bool contact_keyserver_hostname(struct keyclient_t *keyclient, const char
 	return success;
 }
 
-static bool all_volumes_unlocked(struct keyclient_t *keyclient) {
+static unsigned int locked_volume_count(struct keyclient_t *keyclient) {
+	unsigned int count = 0;
 	const unsigned int volume_count = keyclient->keydb->hosts[0].volume_count;
 	for (unsigned int i = 0; i < volume_count; i++) {
 		if (!keyclient->volume_unlocked[i]) {
-			return false;
+			count++;
 		}
 	}
-	return true;
+	return count;
+}
+
+static bool all_volumes_unlocked(struct keyclient_t *keyclient) {
+	return locked_volume_count(keyclient) == 0;
 }
 
 static bool abort_searching_for_keyserver(struct keyclient_t *keyclient) {
@@ -206,7 +230,7 @@ static bool abort_searching_for_keyserver(struct keyclient_t *keyclient) {
 	if (keyclient->opts->timeout_seconds) {
 		double time_passed = now() - keyclient->broadcast_start_time;
 		if (time_passed >= keyclient->opts->timeout_seconds) {
-			log_msg(LLVL_WARNING, "Could not unlock all volumes after %u seconds, giving up.", keyclient->opts->timeout_seconds);
+			log_msg(LLVL_WARNING, "Could not unlock all volumes after %u seconds, giving up. %d volumes still locked.", keyclient->opts->timeout_seconds, locked_volume_count(keyclient));
 			return true;
 		}
 	}
@@ -234,9 +258,14 @@ static bool broadcast_for_keyserver(struct keyclient_t *keyclient) {
 		};
 		struct udp_response_t response;
 		if (wait_udp_response(sd, &response, &src)) {
-			log_msg(LLVL_DEBUG, "Potential keyserver found at %d.%d.%d.%d", PRINTF_FORMAT_IP(&src));
-			if (!contact_keyserver_ipv4(keyclient, &src, keyclient->opts->port)) {
-				log_msg(LLVL_WARNING, "Keyserver announced at %d.%d.%d.%d, but connection to it failed.", PRINTF_FORMAT_IP(&src));
+			if (!is_ip_blacklisted(src.sin_addr.s_addr)) {
+				log_msg(LLVL_INFO, "Keyserver found at %d.%d.%d.%d", PRINTF_FORMAT_IP(&src));
+				blacklist_ip(src.sin_addr.s_addr, BLACKLIST_TIMEOUT_CLIENT);
+				if (!contact_keyserver_ipv4(keyclient, &src, keyclient->opts->port)) {
+					log_msg(LLVL_WARNING, "Keyserver announced at %d.%d.%d.%d, but connection to it failed.", PRINTF_FORMAT_IP(&src));
+				}
+			} else {
+				log_msg(LLVL_DEBUG, "Potential keyserver at %d.%d.%d.%d ignored, blacklist in effect.", PRINTF_FORMAT_IP(&src));
 			}
 		}
 
@@ -281,10 +310,20 @@ bool keyclient_start(const struct pgmopts_client_t *opts) {
 			break;
 		}
 
+		/* Determine which of these volumes are already unlocked */
+		for (unsigned int i = 0; i < host->volume_count; i++) {
+			keyclient.volume_unlocked[i] = is_luks_device_opened(host->volumes[i].devmapper_name);
+		}
+		if (all_volumes_unlocked(&keyclient)) {
+			log_msg(LLVL_INFO, "All %u volumes are unlocked already, not contacting luksrku key server.", host->volume_count);
+			break;
+		} else {
+			log_msg(LLVL_DEBUG, "%u of %u volumes are currently locked.", locked_volume_count(&keyclient), host->volume_count);
+		}
+
 		/* Transcribe the host UUID to ASCII so we only have to do this once */
 		sprintf_uuid((char*)keyclient.identifier, host->host_uuid);
 
-		log_msg(LLVL_DEBUG, "Attempting to unlock %d volumes of host \"%s\".", host->volume_count, host->host_name);
 		if (opts->hostname) {
 			if (!contact_keyserver_hostname(&keyclient, opts->hostname)) {
 				log_msg(LLVL_ERROR, "Failed to contact key server: %s", opts->hostname);
