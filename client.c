@@ -249,6 +249,7 @@ static bool broadcast_for_keyserver(struct keyclient_t *keyclient) {
 	memcpy(query.magic, UDP_MESSAGE_MAGIC, sizeof(query.magic));
 	memcpy(query.host_uuid, keyclient->keydb->hosts[0].host_uuid, 16);
 	while (true) {
+		log_msg(LLVL_TRACE, "Broadcasting search for luksrku keyserver");
 		send_udp_broadcast_message(sd, keyclient->opts->port, &query, sizeof(query));
 
 		struct sockaddr_in src = {

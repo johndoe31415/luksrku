@@ -29,6 +29,7 @@
 #include <openssl/err.h>
 
 #include "log.h"
+#include "util.h"
 
 static enum loglvl_t current_loglvl = LOGLEVEL_DEFAULT;
 static const char *loglvl_names[] = {
@@ -88,8 +89,12 @@ void log_libc(enum loglvl_t level, const char *msg, ...) {
 }
 
 static int log_openssl_error_callback(const char *msg, size_t len, void *vlvlptr) {
+	char msgcopy[strlen(msg) + 1];
+	strcpy(msgcopy, msg);
+	truncate_crlf(msgcopy);
+
 	enum loglvl_t* levelptr = (enum loglvl_t*)vlvlptr;
-	log_msg(*levelptr, msg);
+	log_msg(*levelptr, msgcopy);
 	return 0;
 }
 

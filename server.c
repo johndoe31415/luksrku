@@ -49,9 +49,11 @@
 #include "signals.h"
 #include "udp.h"
 #include "blacklist.h"
+#include "vaulted_keydb.h"
 
 struct keyserver_t {
 	struct keydb_t* keydb;
+	struct vaulted_keydb_t *vaulted_keydb;
 	struct generic_tls_ctx_t gctx;
 	const struct pgmopts_server_t *opts;
 	int tcp_sd, udp_sd;
@@ -60,6 +62,7 @@ struct keyserver_t {
 struct client_thread_ctx_t {
 	struct generic_tls_ctx_t *gctx;
 	const struct keydb_t *keydb;
+	struct vaulted_keydb_t *vaulted_keydb;
 	const struct host_entry_t *host;
 	int fd;
 };
@@ -128,7 +131,15 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 		return 0;
 	}
 
-	return openssl_tls13_psk_establish_session(ssl, ctx->host->tls_psk, PSK_SIZE_BYTES, EVP_sha256(), sessptr);
+	uint8_t psk[PSK_SIZE_BYTES];
+	if (!vaulted_keydb_get_tls_psk(ctx->vaulted_keydb, psk, ctx->host)) {
+		log_msg(LLVL_WARNING, "Cannot establish server connection without TLS-PSK.");
+		return 0;
+	}
+
+	int result = openssl_tls13_psk_establish_session(ssl, psk, PSK_SIZE_BYTES, EVP_sha256(), sessptr);
+	OPENSSL_cleanse(psk, PSK_SIZE_BYTES);
+	return result;
 }
 
 static void client_handler_thread(void *vctx) {
@@ -140,6 +151,7 @@ static void client_handler_thread(void *vctx) {
 		SSL_set_app_data(ssl, client);
 
 		if (SSL_accept(ssl) <= 0) {
+			log_openssl(LLVL_WARNING, "Could not establish TLS connection to connecting client.");
 			ERR_print_errors_fp(stderr);
 		} else {
 			if (client->host) {
@@ -224,6 +236,20 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 			break;
 		}
 
+		if (keyserver.keydb->host_count == 0) {
+			log_msg(LLVL_FATAL, "No host entries in key database: %s", opts->filename);
+			success = false;
+			break;
+		}
+
+		/* Then convert it into a vaulted key database */
+		keyserver.vaulted_keydb = vaulted_keydb_new(keyserver.keydb);
+		if (!keyserver.vaulted_keydb) {
+			log_msg(LLVL_FATAL, "Failed to create vaulted key database.");
+			success = false;
+			break;
+		}
+
 		if (!create_generic_tls_context(&keyserver.gctx, true)) {
 			log_msg(LLVL_FATAL, "Failed to create OpenSSL server context.");
 			success = false;
@@ -273,6 +299,7 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 			struct client_thread_ctx_t client_ctx = {
 				.gctx = &keyserver.gctx,
 				.keydb = keyserver.keydb,
+				.vaulted_keydb = keyserver.vaulted_keydb,
 				.fd = client,
 			};
 			if (!pthread_create_detached_thread(client_handler_thread, &client_ctx, sizeof(client_ctx))) {
