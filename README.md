@@ -26,7 +26,7 @@ allow for easy code review. It exclusively uses fixed message lengths.
 
 The key database is encrypted itself, using AES256-GCM, a 128 bit randomized
 initialization vector and authenticated with a 128 bit authentication tag. Key
-derivation is done using scrypt with N = 131072 = 2^18, r = 8, p = 1.
+derivation is done using scrypt with N = 262144 = 2^18, r = 8, p = 1.
 
 ## Dependencies
 OpenSSL v1.1 is required for luksrku.
