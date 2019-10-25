@@ -257,6 +257,9 @@ bool vault_close(struct vault_t *vault) {
 
 
 void vault_free(struct vault_t *vault) {
+	if (!vault) {
+		return;
+	}
 	vault_destroy_content(vault);
 	free(vault->data);
 	free(vault->key);

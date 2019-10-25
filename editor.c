@@ -32,6 +32,7 @@
 #include "keydb.h"
 #include "uuid.h"
 #include "log.h"
+#include "vaulted_keydb.h"
 
 #define MAX_COMMAND_ALIAS_COUNT			2
 
@@ -72,6 +73,7 @@ static enum cmd_returncode_t cmd_open(struct editor_context_t *ctx, const char *
 static enum cmd_returncode_t cmd_save(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_export(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 #ifdef DEBUG
+static enum cmd_returncode_t cmd_test(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_rawdump(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 #endif
 
@@ -172,6 +174,13 @@ static const struct editor_command_t commands[] = {
 		.description = "Export a host database file for a specific host",
 	},
 #ifdef DEBUG
+	{
+		.cmdnames = { "test", "t" },
+		.callback = cmd_test,
+		.min_params = 1,
+		.max_params = 1,
+		.description = "Test different aspects of luksrku. Used only for debugging.",
+	},
 	{
 		.cmdnames = { "rawdump", "raw" },
 		.callback = cmd_rawdump,
@@ -430,6 +439,33 @@ static enum cmd_returncode_t cmd_export(struct editor_context_t *ctx, const char
 }
 
 #ifdef DEBUG
+
+static enum cmd_returncode_t cmd_test(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	const char *cmd = params[0];
+	if (!strcmp(cmd, "vault")) {
+		if (!ctx->keydb) {
+			fprintf(stderr, "No keydb.\n");
+			return COMMAND_FAILURE;
+		}
+		struct vaulted_keydb_t *vkdb = vaulted_keydb_new(ctx->keydb);
+		fprintf(stderr, "Vault created at %p.\n", vkdb);
+		fprintf(stderr, "TLS-PSK vault %u bytes:\n", vkdb->tls_psk_vault->data_length);
+		dump_hex_long(stderr, vkdb->tls_psk_vault->data, vkdb->tls_psk_vault->data_length);
+		fprintf(stderr, "LUKS vault %u bytes:\n", vkdb->luks_passphrase_vault->data_length);
+		dump_hex_long(stderr, vkdb->luks_passphrase_vault->data, vkdb->luks_passphrase_vault->data_length);
+
+		fprintf(stderr, "~~~~~~~~~~~~~~~~ decrypted TLS-PSK ~~~~~~~~~~~~~~~~\n");
+		vault_open(vkdb->tls_psk_vault);
+		dump_hex_long(stderr, vkdb->tls_psk_vault->data, vkdb->tls_psk_vault->data_length);
+		fprintf(stderr, "~~~~~~~~~~~~~~~~ decrypted LUKS ~~~~~~~~~~~~~~~~\n");
+		vault_open(vkdb->luks_passphrase_vault);
+		dump_hex_long(stderr, vkdb->luks_passphrase_vault->data, vkdb->luks_passphrase_vault->data_length);
+		vaulted_keydb_free(vkdb);
+		return COMMAND_SUCCESS;
+	}
+	fprintf(stderr, "Test accepts one of these commands: vault\n");
+	return COMMAND_FAILURE;
+}
 
 static enum cmd_returncode_t cmd_rawdump(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
 	if (!ctx->keydb) {
