@@ -258,6 +258,7 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 			}
 		}
 
+		log_msg(LLVL_INFO, "Serving luksrku database for %u hosts.", keyserver.keydb->host_count);
 		while (true) {
 			struct sockaddr_in addr;
 			unsigned int len = sizeof(addr);
