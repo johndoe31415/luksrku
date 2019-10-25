@@ -26,9 +26,11 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <pthread.h>
 
 struct vault_t {
-	bool is_open;
+	pthread_mutex_t mutex;
+	unsigned int reference_count;
 	void *data;
 	unsigned int data_length;
 	uint8_t *key;
