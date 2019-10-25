@@ -152,7 +152,7 @@ bool vault_open(struct vault_t *vault) {
 			break;
 		}
 
-		if (EVP_DecryptFinal_ex(ctx, vault->data + len, &len) != 1) {
+		if (EVP_DecryptFinal_ex(ctx, (uint8_t*)vault->data + len, &len) != 1) {
 			success = false;
 			break;
 		}
@@ -220,7 +220,7 @@ bool vault_close(struct vault_t *vault) {
 			break;
 		}
 
-		if (EVP_EncryptFinal_ex(ctx, vault->data + len, &len) != 1) {
+		if (EVP_EncryptFinal_ex(ctx, (uint8_t*)vault->data + len, &len) != 1) {
 			success = false;
 			break;
 		}
@@ -250,7 +250,7 @@ void vault_free(struct vault_t *vault) {
 	free(vault);
 }
 
-#ifndef __TEST_VAULT__
+#ifdef __TEST_VAULT__
 
 static void dump(const uint8_t *data, unsigned int length) {
 	for (unsigned int i = 0; i < length; i++) {

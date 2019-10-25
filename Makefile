@@ -32,7 +32,8 @@ OBJS := \
 	thread.o \
 	udp.o \
 	util.o \
-	uuid.o
+	uuid.o \
+	vault.o
 
 parsers:
 	$(PYPGMOPTS) -n edit parsers/parser_edit.py
