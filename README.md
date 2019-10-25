@@ -1,5 +1,5 @@
 # luksrku
-luksrku is a tool that allows you to remotely unlock LUKS disks during bootup
+luksrku is a tool that allows you to remotely unlock LUKS disks during boot up
 from within your initrd.  The intention is to have full-disk-encryption with
 LUKS-rootfs running headlessly. You should be able to remotely unlock their
 LUKS cryptographic file systems when you know they have been (legitimately)
@@ -9,7 +9,7 @@ This works as follows: The luksrku client (which needs unlocking) and luksrku
 server (which holds all the LUKS keys) share a secret. The client either knows
 the address of the server or it can issue a broadcast in the network to find
 the correct one.  With the help of the shared secret, a TLS connection is
-established betweem the client and a legitimate server (who also knows the same
+established between the client and a legitimate server (who also knows the same
 secret). The server then tells the client all the LUKS passphrases, which
 performs luksOpen on all volumes.
 
@@ -51,8 +51,8 @@ While it might seem nonsensical to encrypt memory and have the key right next
 to the encrypted data, the reason for this this is to thwart cold-boot attacks.
 A successful cold-boot attack would require a complete and perfect 1 MiB
 snapshot of the pre-key (or an acquisition in the short timeframe where the
-keyvault is open) -- something that is difficult to do because of naturally
-occuring bit errors during cold boot acquisition.
+key vault is open) -- something that is difficult to do because of naturally
+occurring bit errors during cold boot acquisition.
 
 ## Dependencies
 OpenSSL v1.1 is required for luksrku as well as pkg-config.
@@ -69,7 +69,7 @@ Available commands:
     ./luksrku server   Start a key server process
     ./luksrku client   Unlock LUKS volumes by querying a key server
 
-For futher help: ./luksrku (command) --help
+For further help: ./luksrku (command) --help
 
 luksrku version v0.02-45-gf01ec97d6b-dirty
 ```
@@ -80,7 +80,7 @@ Then, for each command, you have an own help page:
 $ ./luksrku edit --help
 usage: luksrku edit [-v] [filename]
 
-Edits a luksrks key database.
+Edits a luksrku key database.
 
 positional arguments:
   filename       Database file to edit.
