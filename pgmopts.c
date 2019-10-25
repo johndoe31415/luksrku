@@ -130,6 +130,7 @@ static void parse_pgmopts_server(int argc, char **argv) {
 
 static void parse_pgmopts_client(int argc, char **argv) {
 	pgmopts_rw.client = (struct pgmopts_client_t){
+		.timeout_seconds = ARGPARSE_CLIENT_DEFAULT_TIMEOUT,
 		.port = ARGPARSE_SERVER_DEFAULT_PORT,
 		.verbosity = ARGPARSE_SERVER_DEFAULT_VERBOSE,
 	};
