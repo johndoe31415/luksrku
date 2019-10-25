@@ -37,85 +37,38 @@
 #include "uuid.h"
 
 bool is_luks_device_opened(const char *mapping_name) {
-	const char *command[] = {
-		"dmsetup",
-		"status",
-		mapping_name,
-		NULL,
+	struct exec_cmd_t cmd = {
+		.argv = (const char *[]){
+			"dmsetup",
+			"status",
+			mapping_name,
+			NULL,
+		},
+		.show_output = should_log(LLVL_TRACE),
 	};
-	struct runresult_t runresult = exec_command(command, should_log(LLVL_TRACE));
+	struct exec_result_t runresult = exec_command(&cmd);
 	return runresult.success && (runresult.returncode == 0);
 }
 
-bool open_luks_device(const uint8_t *encrypted_device_uuid, const char *mapping_name, const char *passphrase_file) {
+bool open_luks_device(const uint8_t *encrypted_device_uuid, const char *mapping_name, const char *passphrase, unsigned int passphrase_length) {
 	char encrypted_device[64];
 	strcpy(encrypted_device, "UUID=");
 	sprintf_uuid(encrypted_device + 5, encrypted_device_uuid);
 	log_msg(LLVL_INFO, "Trying to unlock LUKS mapping %s based on %s", mapping_name, encrypted_device);
 
-	const char *command[] = {
-		"cryptsetup",
-		"luksOpen",
-		"-T", "1",
-		"-d", passphrase_file,
-		encrypted_device,
-		mapping_name,
-		NULL,
-
+	struct exec_cmd_t cmd = {
+		.argv = (const char *[]){
+			"cryptsetup",
+			"luksOpen",
+			"-T", "1",
+			encrypted_device,
+			mapping_name,
+			NULL,
+		},
+		.stdin_data = passphrase,
+		.stdin_length = passphrase_length,
+		.show_output = should_log(LLVL_DEBUG),
 	};
-	struct runresult_t runresult = exec_command(command, should_log(LLVL_DEBUG));
+	struct exec_result_t runresult = exec_command(&cmd);
 	return runresult.success && (runresult.returncode == 0);
-}
-
-static bool wipe_passphrase_file(const char *filename, int length) {
-	uint8_t wipe_buf[length];
-	memset(wipe_buf, 0, length);
-
-	int fd = open(filename, O_WRONLY);
-	if (fd == -1) {
-		log_libc(LLVL_ERROR, "Wiping of passphrase file %s failed in open(2)", filename);
-		return false;
-	}
-
-	if (write(fd, wipe_buf, length) != length) {
-		log_libc(LLVL_ERROR, "Wiping of passphrase file %s failed in write(2)", filename);
-		close(fd);
-		return false;
-	}
-	close(fd);
-	unlink(filename);
-	return true;
-}
-
-static const char *write_passphrase_file(const void *passphrase, int passphrase_length) {
-	//const char *filename = "/dev/shm/luksrku_passphrase.bin";		/* TODO make this variable */
-	const char *filename = "/tmp/luksrku_passphrase.bin";
-	int fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 0600);
-	if (fd == -1) {
-		log_libc(LLVL_ERROR, "Creation of passphrase file %s failed", filename);
-		return NULL;
-	}
-
-	if (write(fd, passphrase, passphrase_length) != passphrase_length) {
-		log_libc(LLVL_ERROR, "Writing to passphrase file %s failed", filename);
-		wipe_passphrase_file(filename, passphrase_length);
-		close(fd);
-		return NULL;
-	}
-
-	close(fd);
-	return filename;
-}
-
-bool open_luks_device_pw(const uint8_t *encrypted_device_uuid, const char *mapping_name, const char *passphrase, unsigned int passphrase_length) {
-	const char *pw_filename = write_passphrase_file(passphrase, passphrase_length);
-	if (!pw_filename) {
-		return false;
-	}
-	bool success = open_luks_device(encrypted_device_uuid, mapping_name, pw_filename);
-	if (!wipe_passphrase_file(pw_filename, passphrase_length)) {
-		log_libc(LLVL_ERROR, "Wiping of passphrase file failed -- treating this unlock as failed (luksOpen %s)", success ? "succeeded" : "also failed");
-		success = false;
-	}
-	return success;
 }

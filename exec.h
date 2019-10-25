@@ -1,6 +1,6 @@
 /*
 	luksrku - Tool to remotely unlock LUKS disks using TLS.
-	Copyright (C) 2016-2016 Johannes Bauer
+	Copyright (C) 2016-2019 Johannes Bauer
 
 	This file is part of luksrku.
 
@@ -26,14 +26,21 @@
 
 #include <stdbool.h>
 
-struct runresult_t {
+struct exec_cmd_t {
+	const char **argv;
+	bool show_output;
+	const void *stdin_data;
+	unsigned int stdin_length;
+};
+
+struct exec_result_t {
 	bool success;
 	int returncode;
 };
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 void argv_dump(const char **argv);
-struct runresult_t exec_command(const char **argv, bool show_output);
+struct exec_result_t exec_command(const struct exec_cmd_t *cmd);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif

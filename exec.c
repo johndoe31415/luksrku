@@ -1,6 +1,6 @@
 /*
 	luksrku - Tool to remotely unlock LUKS disks using TLS.
-	Copyright (C) 2016-2016 Johannes Bauer
+	Copyright (C) 2016-2019 Johannes Bauer
 
 	This file is part of luksrku.
 
@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <stdint.h>
 #include <errno.h>
 
 #include "exec.h"
@@ -78,45 +79,80 @@ static char **argv_dup(const char **argv) {
 	return result;
 }
 
-struct runresult_t exec_command(const char **argv, bool show_output) {
-	struct runresult_t runresult;
-	char **argvcopy = argv_dup(argv);
+struct exec_result_t exec_command(const struct exec_cmd_t *command) {
+	char **argvcopy = argv_dup(command->argv);
+	if (!argvcopy) {
+		return (struct exec_result_t) { .success = false };
+	}
 
-	memset(&runresult, 0, sizeof(runresult));
+	int pipefd[2];
+	if (pipe(pipefd) == -1) {
+		log_libc(LLVL_ERROR, "Creation of pipe(2) failed trying to execute %s", argvcopy[0]);
+		argv_free(argvcopy);
+		return (struct exec_result_t) { .success = false };
+	}
+	const int pipe_read_end = pipefd[0];
+	const int pipe_write_end = pipefd[1];
 
 	pid_t pid = fork();
 	if (pid == -1) {
 		perror("fork");
-		runresult.success = false;
 		argv_free(argvcopy);
-		return runresult;
+		return (struct exec_result_t) { .success = false };
 	}
 	if (pid == 0) {
 		/* Child */
-		if (!show_output) {
+
+		close(pipe_write_end);
+		if (dup2(pipe_read_end, STDIN_FILENO) == -1) {
+			log_libc(LLVL_ERROR, "Could not dup2(2) stdin while trying to execute %s", argvcopy[0]);
+			exit(EXIT_FAILURE);
+		}
+
+		if (!command->show_output) {
 			/* Shut up the child if user did not request debug output */
-			close(1);
-			close(2);
+			close(STDOUT_FILENO);
+			close(STDERR_FILENO);
 		}
 		execvp(argvcopy[0], argvcopy);
 		log_libc(LLVL_ERROR, "Execution of %s in forked child process failed execvp(3)", argvcopy[0]);
 
-		/* Exec failed, terminate child with EXIT_FAILUR (parent will catch
+		/* Exec failed, terminate child with EXIT_FAILURE (parent will catch
 		 * this as the return code) */
 		exit(EXIT_FAILURE);
 	}
+
+	/* Parent process */
+	struct exec_result_t runresult = {
+		.success = true,
+	};
+	close(pipe_read_end);
+
+	if (command->stdin_data && command->stdin_length) {
+		unsigned int offset = 0;
+		unsigned int remaining_bytes = command->stdin_length;
+		const uint8_t *byte_buffer = (const uint8_t*)command->stdin_data;
+		while (remaining_bytes) {
+			ssize_t written = write(pipe_write_end, byte_buffer + offset, remaining_bytes);
+			if (written <= 0) {
+				log_libc(LLVL_ERROR, "writing to pipe returned %d", written);
+				runresult.success = false;
+			}
+			offset += written;
+			remaining_bytes -= written;
+		}
+	}
+	close(pipe_write_end);
 
 	int status;
 	if (waitpid(pid, &status, 0) == (pid_t)-1) {
 		log_libc(LLVL_ERROR, "exec_command %s failed executing waitpid(2)", argvcopy[0]);
 		runresult.success = false;
-		runresult.returncode = -1;
 	} else {
-		runresult.success = true;
 		runresult.returncode = WEXITSTATUS(status);
 	}
 	argv_free(argvcopy);
-	log_msg(LLVL_DEBUG, "Subprocess (PID %d): %s exited with returncode %d", pid, argv[0], runresult.returncode);
+	log_msg(LLVL_DEBUG, "Subprocess (PID %d): %s exited with returncode %d", pid, command->argv[0], runresult.returncode);
 	return runresult;
 }
 
