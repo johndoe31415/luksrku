@@ -29,6 +29,7 @@
 #include <openssl/rand.h>
 #include <openssl/evp.h>
 #include "vault.h"
+#include "util.h"
 
 static bool vault_derive_key(const struct vault_t *vault, uint8_t key[static 32]) {
 	/* Derive the AES key from it */
@@ -36,15 +37,6 @@ static bool vault_derive_key(const struct vault_t *vault, uint8_t key[static 32]
 		return false;
 	}
 	return true;
-}
-
-static double now(void) {
-	struct timeval tv;
-	if (gettimeofday(&tv, NULL) == 0) {
-		return tv.tv_sec + (1e-6 * tv.tv_usec);
-	} else {
-		return 0;
-	}
 }
 
 static double vault_measure_key_derivation_time(struct vault_t *vault, unsigned int new_iteration_count) {
