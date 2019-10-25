@@ -156,6 +156,9 @@ struct vaulted_keydb_t *vaulted_keydb_new(struct keydb_t *keydb) {
 }
 
 void vaulted_keydb_free(struct vaulted_keydb_t *vaulted_keydb) {
+	if (!vaulted_keydb) {
+		return;
+	}
 	vault_free(vaulted_keydb->luks_passphrase_vault);
 	vault_free(vaulted_keydb->tls_psk_vault);
 	free(vaulted_keydb);

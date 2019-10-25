@@ -42,6 +42,7 @@ parsers:
 	$(PYPGMOPTS) -n client parsers/parser_client.py
 
 install: all
+	strip luksrku
 	cp luksrku $(INSTALL_PREFIX)sbin/
 	chown root:root $(INSTALL_PREFIX)sbin/luksrku
 	chmod 755 $(INSTALL_PREFIX)sbin/luksrku
