@@ -48,6 +48,7 @@
 #include "keydb.h"
 #include "signals.h"
 #include "udp.h"
+#include "blacklist.h"
 
 struct keyserver_t {
 	struct keydb_t* keydb;
@@ -178,7 +179,23 @@ static void udp_handler_thread(void *vctx) {
 		if (!wait_udp_query(client->udp_sd, client->port, &rx_msg, &origin, 1000)) {
 			continue;
 		}
-		fprintf(stderr, "RXED! query\n");
+
+		log_msg(LLVL_TRACE, "Recevied UDP query message from %d.%d.%d.%d:%d", PRINTF_FORMAT_IP(&origin), ntohs(origin.sin_port));
+
+		/* Ensure that we only reply to this host once every minute */
+		const uint32_t ipv4 = origin.sin_addr.s_addr;
+		if (is_ip_blacklisted(ipv4)) {
+			continue;
+		}
+		blacklist_ip(ipv4);
+
+		/* Check if we have this host in our database */
+		if (keydb_get_host_by_uuid(client->keydb, rx_msg.host_uuid)) {
+			/* Yes, it is. Notify the client who's asking that we have their key. */
+			struct udp_response_t tx_msg;
+			memcpy(tx_msg.magic, UDP_MESSAGE_MAGIC, UDP_MESSAGE_MAGIC_SIZE);
+			send_udp_message(client->udp_sd, &origin, &tx_msg, sizeof(tx_msg), true);
+		}
 	}
 }
 

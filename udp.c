@@ -62,26 +62,34 @@ int create_udp_socket(unsigned int listen_port, bool send_broadcast) {
 
 	return sd;
 }
-bool wait_udp_message(int sd, int port, void *data, unsigned int max_length, struct sockaddr_in *source, unsigned int timeout_millis) {
+bool wait_udp_message(int sd, int port, void *data, unsigned int length, struct sockaddr_in *source, unsigned int timeout_millis) {
 	fprintf(stderr, "RECV...\n");
 	socklen_t socklen = sizeof(struct sockaddr_in);
-	ssize_t rx_bytes = recvfrom(sd,data, max_length, 0, (struct sockaddr*)source, &socklen);
+	ssize_t rx_bytes = recvfrom(sd,data, length, 0, (struct sockaddr*)source, &socklen);
 	fprintf(stderr, "RECV %ld\n", rx_bytes);
+	return rx_bytes == length;
+}
+
+bool send_udp_message(int sd, struct sockaddr_in *destination, const void *data, unsigned int length, bool is_response) {
+	int flags = is_response ? MSG_CONFIRM : 0;
+	ssize_t tx_bytes = sendto(sd, data, length, flags, (struct sockaddr*)destination, sizeof(struct sockaddr_in));
+	if (tx_bytes < 0) {
+		log_libc(LLVL_ERROR, "Unable to sendto(2)");
+		return false;
+	} else if (tx_bytes != length) {
+		log_libc(LLVL_ERROR, "Unable to sendto(2) the complete message, %d bytes sent, but %u requested.", tx_bytes, length);
+		return false;
+	}
 	return true;
 }
 
 bool send_udp_broadcast_message(int sd, int port, const void *data, unsigned int length) {
-	struct sockaddr_in destination;
-	memset(&destination, 0, sizeof(struct sockaddr_in));
-	destination.sin_family = AF_INET;
-	destination.sin_port = htons(port);
-	destination.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-
-	if (sendto(sd, data, length, 0, (struct sockaddr *)&destination, sizeof(struct sockaddr_in)) < 0) {
-		log_libc(LLVL_ERROR, "Unable to sendto(2)");
-		return false;
-	}
-	return true;
+	struct sockaddr_in destination = {
+		.sin_family = AF_INET,
+		.sin_port = htons(port),
+		.sin_addr.s_addr = htonl(INADDR_BROADCAST),
+	};
+	return send_udp_message(sd, &destination, data, length, false);
 }
 
 bool wait_udp_query(int sd, int port, struct udp_query_t *query, struct sockaddr_in *source, unsigned int timeout_millis) {

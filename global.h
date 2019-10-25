@@ -51,9 +51,6 @@
 /* In what interval the server should broadcast that it's waiting for unlocking */
 #define WAITING_MESSAGE_BROADCAST_INTERVAL_MILLISECONDS		1000
 
-#define BLACKLIST_ENTRY_COUNT								16
-#define BLACKLIST_ENTRY_TIMEOUT_SECS						120
-
 #define staticassert(cond)		_Static_assert((cond), #cond)
 
 #endif

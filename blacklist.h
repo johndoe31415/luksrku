@@ -1,6 +1,6 @@
 /*
 	luksrku - Tool to remotely unlock LUKS disks using TLS.
-	Copyright (C) 2016-2016 Johannes Bauer
+	Copyright (C) 2016-2019 Johannes Bauer
 
 	This file is part of luksrku.
 
@@ -26,6 +26,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+
+#define BLACKLIST_ENTRY_COUNT								32
+#define BLACKLIST_ENTRY_TIMEOUT_SECS						60
 
 struct blacklist_entry_t {
 	uint32_t ip;

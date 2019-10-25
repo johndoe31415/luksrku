@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define PRINTF_FORMAT_IP(saddrptr)		(saddrptr->sin_addr.s_addr >> 0) & 0xff, (saddrptr->sin_addr.s_addr >> 8) & 0xff, (saddrptr->sin_addr.s_addr >> 16) & 0xff, (saddrptr->sin_addr.s_addr >> 24) & 0xff
+#define PRINTF_FORMAT_IP(saddrptr)		((saddrptr)->sin_addr.s_addr >> 0) & 0xff, ((saddrptr)->sin_addr.s_addr >> 8) & 0xff, ((saddrptr)->sin_addr.s_addr >> 16) & 0xff, ((saddrptr)->sin_addr.s_addr >> 24) & 0xff
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 bool query_passphrase(const char *prompt, char *passphrase, unsigned int passphrase_maxsize);

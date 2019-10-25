@@ -1,6 +1,6 @@
 /*
 	luksrku - Tool to remotely unlock LUKS disks using TLS.
-	Copyright (C) 2016-2016 Johannes Bauer
+	Copyright (C) 2016-2019 Johannes Bauer
 
 	This file is part of luksrku.
 
@@ -30,25 +30,23 @@
 
 static struct blacklist_entry_t blacklist[BLACKLIST_ENTRY_COUNT];
 
-static double gettime(void) {
+static double now(void) {
 	struct timeval tv;
 	if (gettimeofday(&tv, NULL)) {
 		return 0;
 	}
-	double now = tv.tv_sec + (tv.tv_usec * 1e-6);
-	return now;
+	return tv.tv_sec + (tv.tv_usec * 1e-6);
 }
 
 static bool blacklist_entry_expired(int index) {
-	double now = gettime();
-	return now > blacklist[index].entered + BLACKLIST_ENTRY_TIMEOUT_SECS;
+	return now() > blacklist[index].entered + BLACKLIST_ENTRY_TIMEOUT_SECS;
 }
 
 void blacklist_ip(uint32_t ip) {
 	for (int i = 0; i < BLACKLIST_ENTRY_COUNT; i++) {
 		if (blacklist_entry_expired(i)) {
 			blacklist[i].ip = ip;
-			blacklist[i].entered = gettime();
+			blacklist[i].entered = now();
 			return;
 		}
 	}
@@ -62,4 +60,3 @@ bool is_ip_blacklisted(uint32_t ip) {
 	}
 	return false;
 }
-

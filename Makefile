@@ -15,6 +15,7 @@ OBJS := \
 	argparse_client.o \
 	argparse_edit.o \
 	argparse_server.o \
+	blacklist.o \
 	client.o \
 	editor.o \
 	file_encryption.o \
