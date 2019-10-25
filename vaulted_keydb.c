@@ -83,16 +83,10 @@ bool vaulted_keydb_get_tls_psk(struct vaulted_keydb_t *vaulted_keydb, uint8_t de
 	return true;
 }
 
-bool vaulted_keydb_get_volume_luks_passphase_raw(struct vaulted_keydb_t *vaulted_keydb, uint8_t dest[LUKS_PASSPHRASE_RAW_SIZE_BYTES], const struct host_entry_t *host, const struct volume_entry_t *volume) {
+bool vaulted_keydb_get_volume_luks_passphases_raw(struct vaulted_keydb_t *vaulted_keydb, void (*copy_callback)(void *vctx, unsigned int volume_index, const void *source), void *copy_ctx, const struct host_entry_t *host) {
 	int host_index = keydb_get_host_index(vaulted_keydb->keydb, host);
 	if (host_index < 0) {
 		log_msg(LLVL_FATAL, "Unable to retrieve host index for vaulted key db entry.");
-		return false;
-	}
-
-	int volume_index = keydb_get_volume_index(host, volume);
-	if (volume_index < 0) {
-		log_msg(LLVL_FATAL, "Unable to retrieve volume index for vaulted key db entry.");
 		return false;
 	}
 
@@ -105,12 +99,13 @@ bool vaulted_keydb_get_volume_luks_passphase_raw(struct vaulted_keydb_t *vaulted
 		return false;
 	}
 
-	/* Copy out the data we need */
-	memcpy(dest, &entry->volumes[volume_index].luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
+	/* Copy out the data we need by calling back for all volumes */
+	for (unsigned int i = 0; i < host->volume_count; i++) {
+		copy_callback(copy_ctx, i, &entry->volumes[i].luks_passphrase_raw);
+	}
 
 	/* And close it back up */
 	if (!vault_close(vaulted_keydb->luks_passphrase_vault)) {
-		OPENSSL_cleanse(dest, PSK_SIZE_BYTES);
 		log_msg(LLVL_FATAL, "Unable to close LUKS passphrase vault of vaulted key db entry.");
 		return false;
 	}

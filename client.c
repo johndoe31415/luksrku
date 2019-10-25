@@ -84,11 +84,14 @@ static bool attempt_unlock_luks_volume(struct keyclient_t *keyclient, const stru
 		return false;
 	}
 
-	/* Volume! */
+	/* This is a valid volume which we need to unlock */
 	int volume_index = keydb_get_volume_index(host, volume);
 	if (volume_index != -1) {
 		if (keyclient->opts->no_luks) {
 			keyclient->volume_unlocked[volume_index] = true;
+#ifdef DEBUG
+			dump_hexline(stderr, "Raw key: ", unlock_msg->luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES, false);
+#endif
 		} else {
 			if (!keyclient->volume_unlocked[volume_index]) {
 				bool success = unlock_luks_volume(volume, unlock_msg);

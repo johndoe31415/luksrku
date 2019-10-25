@@ -142,6 +142,11 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 	return result;
 }
 
+static void copy_luks_passphrase_callback(void *vctx, unsigned int volume_index, const void *source) {
+	struct msg_t *msgs = (struct msg_t*)vctx;
+	memcpy(msgs[volume_index].luks_passphrase_raw, source, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
+}
+
 static void client_handler_thread(void *vctx) {
 	struct client_thread_ctx_t *client = (struct client_thread_ctx_t*)vctx;
 
@@ -156,19 +161,21 @@ static void client_handler_thread(void *vctx) {
 		} else {
 			if (client->host) {
 				log_msg(LLVL_DEBUG, "Client \"%s\" connected, sending unlock data for %d volumes.", client->host->host_name, client->host->volume_count);
+				/* Initially prepare all messages we're about to send to the
+				 * client by filling the UUID fields */
+				struct msg_t msgs[client->host->volume_count];
 				for (unsigned int i = 0; i < client->host->volume_count; i++) {
 					const struct volume_entry_t *volume = &client->host->volumes[i];
+					memcpy(msgs[i].volume_uuid, volume->volume_uuid, 16);
+				}
 
-					struct msg_t msg = { 0 };
-					memcpy(msg.volume_uuid, volume->volume_uuid, 16);
-					memcpy(msg.luks_passphrase_raw, volume->luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
+				/* Then also fill the keys */
+				vaulted_keydb_get_volume_luks_passphases_raw(client->vaulted_keydb, copy_luks_passphrase_callback, msgs, client->host);
 
-					int txlen = SSL_write(ssl, &msg, sizeof(msg));
-					OPENSSL_cleanse(&msg, sizeof(msg));
-					if (txlen != sizeof(msg)) {
-						log_msg(LLVL_WARNING, "Tried to send message of %d bytes, but sent %d. Severing connection to client.", sizeof(msg), txlen);
-						break;
-					}
+				int txlen = SSL_write(ssl, &msgs, sizeof(msgs));
+				OPENSSL_cleanse(&msgs, sizeof(msgs));
+				if (txlen != (long)sizeof(msgs)) {
+					log_msg(LLVL_WARNING, "Tried to send message of %d bytes, but sent %d. Severing connection to client.", sizeof(msgs), txlen);
 				}
 			} else {
 				log_msg(LLVL_FATAL, "Client connected, but no host set.");
@@ -316,6 +323,7 @@ bool keyserver_start(const struct pgmopts_server_t *opts) {
 		close(keyserver.tcp_sd);
 	}
 	free_generic_tls_context(&keyserver.gctx);
+	vaulted_keydb_free(keyserver.vaulted_keydb);
 	keydb_free(keyserver.keydb);
 	return success;
 }
