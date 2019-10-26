@@ -33,14 +33,14 @@ struct vault_t {
 	unsigned int reference_count;
 	void *data;
 	unsigned int data_length;
-	uint8_t *key;
-	unsigned int key_length;
+	uint8_t *source_key;
+	unsigned int source_key_length;
 	uint8_t auth_tag[16];
 	uint64_t iv;
 	unsigned int iteration_cnt;
 };
 
-#define DEFAULT_KEY_LENGTH_BYTES		(1024 * 1024)
+#define DEFAULT_SOURCE_KEY_LENGTH_BYTES		(1024 * 1024)
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
 struct vault_t* vault_init(unsigned int data_length, double target_derivation_time);

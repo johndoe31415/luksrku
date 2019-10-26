@@ -33,9 +33,9 @@
 #include "util.h"
 #include "log.h"
 
-static bool vault_derive_key(const struct vault_t *vault, uint8_t key[static 32]) {
+static bool vault_derive_key(const struct vault_t *vault, uint8_t dkey[static 32]) {
 	/* Derive the AES key from it */
-	if (PKCS5_PBKDF2_HMAC((char*)vault->key, vault->key_length, NULL, 0, vault->iteration_cnt, EVP_sha256(), 32, key) != 1) {
+	if (PKCS5_PBKDF2_HMAC((char*)vault->source_key, vault->source_key_length, NULL, 0, vault->iteration_cnt, EVP_sha256(), 32, dkey) != 1) {
 		return false;
 	}
 	return true;
@@ -80,9 +80,9 @@ struct vault_t* vault_init(unsigned int data_length, double target_derivation_ti
 		free(vault);
 		return NULL;
 	}
-	vault->key = malloc(DEFAULT_KEY_LENGTH_BYTES);
-	vault->key_length = DEFAULT_KEY_LENGTH_BYTES;
-	if (!vault->key) {
+	vault->source_key_length = DEFAULT_SOURCE_KEY_LENGTH_BYTES;
+	vault->source_key = malloc(vault->source_key_length);
+	if (!vault->source_key) {
 		vault_free(vault);
 		return NULL;
 	}
@@ -103,8 +103,8 @@ static void vault_destroy_content(struct vault_t *vault) {
 	if (vault->data) {
 		OPENSSL_cleanse(vault->data, vault->data_length);
 	}
-	if (vault->key) {
-		OPENSSL_cleanse(vault->key, vault->key_length);
+	if (vault->source_key) {
+		OPENSSL_cleanse(vault->source_key, vault->source_key_length);
 	}
 }
 
@@ -155,7 +155,7 @@ static bool vault_decrypt(struct vault_t *vault) {
 	} while (false);
 
 	if (success) {
-		OPENSSL_cleanse(vault->key, vault->key_length);
+		OPENSSL_cleanse(vault->source_key, vault->source_key_length);
 		OPENSSL_cleanse(vault->auth_tag, 16);
 	} else {
 		/* Vault may be in an inconsistent state. Destroy contents. */
@@ -181,7 +181,7 @@ bool vault_open(struct vault_t *vault) {
 
 static bool vault_encrypt(struct vault_t *vault) {
 	/* Generate a new key source */
-	if (RAND_bytes(vault->key, vault->key_length) != 1) {
+	if (RAND_bytes(vault->source_key, vault->source_key_length) != 1) {
 		return false;
 	}
 
@@ -260,9 +260,10 @@ void vault_free(struct vault_t *vault) {
 	if (!vault) {
 		return;
 	}
+	pthread_mutex_destroy(&vault->mutex);
 	vault_destroy_content(vault);
 	free(vault->data);
-	free(vault->key);
+	free(vault->source_key);
 	free(vault);
 }
 
