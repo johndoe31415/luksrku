@@ -36,6 +36,7 @@ struct vault_t {
 	uint8_t *source_key;
 	unsigned int source_key_length;
 	uint8_t auth_tag[16];
+	uint8_t dkey[32];
 	uint64_t iv;
 	unsigned int iteration_cnt;
 };

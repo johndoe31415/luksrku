@@ -41,6 +41,14 @@ static bool vault_derive_key(const struct vault_t *vault, uint8_t dkey[static 32
 	return true;
 }
 
+static bool vault_rekey(struct vault_t *vault) {
+	/* Generate a new source key  */
+	if (RAND_bytes(vault->source_key, vault->source_key_length) != 1) {
+		return false;
+	}
+	return vault_derive_key(vault, vault->dkey);
+}
+
 static double vault_measure_key_derivation_time(struct vault_t *vault, unsigned int new_iteration_count) {
 	uint8_t dkey[32];
 	double t0, t1;
@@ -67,7 +75,7 @@ static void vault_calibrate_derivation_time(struct vault_t *vault, double target
 	}
 }
 
-struct vault_t* vault_init(unsigned int data_length, double target_derivation_time) {
+struct vault_t* vault_init(unsigned int data_length, double target_decryption_time) {
 	struct vault_t *vault;
 
 	vault = calloc(1, sizeof(struct vault_t));
@@ -94,7 +102,18 @@ struct vault_t* vault_init(unsigned int data_length, double target_derivation_ti
 	}
 	vault->reference_count = 1;
 	vault->data_length = data_length;
-	vault_calibrate_derivation_time(vault, target_derivation_time);
+
+	/* Decryption takes *two* derivations, one for the current key (to decrypt)
+	 * and another in advance after re-keying, therefore we halve the time
+	 * here. */
+	vault_calibrate_derivation_time(vault, target_decryption_time / 2);
+
+	/* Initially gernerate a full key and derive the dkey already (vault is
+	 * open at this point) */
+	if (!vault_rekey(vault)) {
+		vault_free(vault);
+		return NULL;
+	}
 
 	return vault;
 }
@@ -109,8 +128,18 @@ static void vault_destroy_content(struct vault_t *vault) {
 }
 
 static bool vault_decrypt(struct vault_t *vault) {
+	/* At this point we only have the source key, not the dkey yet. Derive the
+	 * dkey into a local piece of memory first */
 	uint8_t dkey[32];
 	if (!vault_derive_key(vault, dkey)) {
+		OPENSSL_cleanse(dkey, sizeof(dkey));
+		return false;
+	}
+
+	/* Then rekey the vault for the upcoming closing. Do this while the vault
+	 * is still encrypted to minimize window of opportunity. */
+	if (!vault_rekey(vault)) {
+		OPENSSL_cleanse(dkey, sizeof(dkey));
 		return false;
 	}
 
@@ -151,19 +180,16 @@ static bool vault_decrypt(struct vault_t *vault) {
 			success = false;
 			break;
 		}
-
 	} while (false);
 
-	if (success) {
-		OPENSSL_cleanse(vault->source_key, vault->source_key_length);
-		OPENSSL_cleanse(vault->auth_tag, 16);
-	} else {
+	if (!success) {
 		/* Vault may be in an inconsistent state. Destroy contents. */
 		vault_destroy_content(vault);
 	}
 
-	EVP_CIPHER_CTX_free(ctx);
 	OPENSSL_cleanse(dkey, sizeof(dkey));
+	OPENSSL_cleanse(vault->auth_tag, 16);
+	EVP_CIPHER_CTX_free(ctx);
 	return success;
 }
 
@@ -180,16 +206,7 @@ bool vault_open(struct vault_t *vault) {
 }
 
 static bool vault_encrypt(struct vault_t *vault) {
-	/* Generate a new key source */
-	if (RAND_bytes(vault->source_key, vault->source_key_length) != 1) {
-		return false;
-	}
-
-	uint8_t key[32];
-	if (!vault_derive_key(vault, key)) {
-		return false;
-	}
-
+	/* We already have a dkey in the structure, so we can quickly encrypt */
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		return false;
@@ -211,7 +228,7 @@ static bool vault_encrypt(struct vault_t *vault) {
 			break;
 		}
 
-		if (EVP_EncryptInit_ex(ctx, NULL, NULL, key, (unsigned char*)&vault->iv) != 1) {
+		if (EVP_EncryptInit_ex(ctx, NULL, NULL, vault->dkey, (unsigned char*)&vault->iv) != 1) {
 			success = false;
 			break;
 		}
@@ -233,13 +250,16 @@ static bool vault_encrypt(struct vault_t *vault) {
 		}
 	} while (false);
 
+	/* The data is encrypted, erase the dkey, but keep the source key (so we
+	 * can decrypt later) */
+	OPENSSL_cleanse(vault->dkey, sizeof(vault->dkey));
+
 	if (!success) {
 		/* Vault may be in an inconsistent state. Destroy contents. */
 		vault_destroy_content(vault);
 	}
 
 	EVP_CIPHER_CTX_free(ctx);
-	OPENSSL_cleanse(key, sizeof(key));
 	return success;
 }
 
@@ -279,7 +299,7 @@ static void dump(const uint8_t *data, unsigned int length) {
 int main(void) {
 	/* gcc -D__TEST_VAULT__ -Wall -std=c11 -Wmissing-prototypes -Wstrict-prototypes -Werror=implicit-function-declaration -Wimplicit-fallthrough -Wshadow -pie -fPIE -fsanitize=address -fsanitize=undefined -fsanitize=leak -pthread -o vault vault.c util.c log.c -lcrypto
 	 */
-	struct vault_t *vault = vault_init(64, 0.1);
+	struct vault_t *vault = vault_init(64, 1);
 	dump(vault->data, vault->data_length);
 	for (int i = 0; i < 10; i++) {
 		if (!vault_close(vault)) {
@@ -287,6 +307,7 @@ int main(void) {
 			abort();
 		}
 		dump(vault->data, vault->data_length);
+
 		if (!vault_open(vault)) {
 			fprintf(stderr, "vault open failed.\n");
 			abort();
