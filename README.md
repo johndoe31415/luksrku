@@ -224,9 +224,9 @@ That's it, it should now work.
 
 ## Legacy version
 luksrku has undergone an extensive rewrite of the internal code. The current
-version is fully incompatible to previous (<= v0.02) versions. Servers and
-clients will not recognize each other, database formats and the creation of
-database works entirely different.
+version v0.03 is compatible only to versions >= 0.02. For earlier versions,
+servers and clients will not recognize each other, database formats and the
+creation of database works entirely different.
 
 ## License
 GNU GPL-3.
