@@ -47,7 +47,7 @@
 
 struct keyclient_t {
 	const struct pgmopts_client_t *opts;
-	struct keydb_t *keydb;
+	keydb_t *keydb;
 	bool volume_unlocked[MAX_VOLUMES_PER_HOST];
 	unsigned char identifier[ASCII_UUID_BUFSIZE];
 	double broadcast_start_time;
@@ -61,7 +61,7 @@ static int psk_client_callback(SSL *ssl, const EVP_MD *md, const unsigned char *
 	return openssl_tls13_psk_establish_session(ssl, key_client->keydb->hosts[0].tls_psk, PSK_SIZE_BYTES, EVP_sha256(), sessptr);
 }
 
-static bool unlock_luks_volume(const struct volume_entry_t *volume, const struct msg_t *unlock_msg) {
+static bool unlock_luks_volume(const volume_entry_t *volume, const struct msg_t *unlock_msg) {
 	bool success = true;
 	char luks_passphrase[LUKS_PASSPHRASE_TEXT_SIZE_BYTES];
 	if (ascii_encode(luks_passphrase, sizeof(luks_passphrase), unlock_msg->luks_passphrase_raw, sizeof(unlock_msg->luks_passphrase_raw))) {
@@ -75,8 +75,8 @@ static bool unlock_luks_volume(const struct volume_entry_t *volume, const struct
 }
 
 static bool attempt_unlock_luks_volume(struct keyclient_t *keyclient, const struct msg_t *unlock_msg) {
-	const struct host_entry_t *host = &keyclient->keydb->hosts[0];
-	const struct volume_entry_t* volume = keydb_get_volume_by_uuid(host, unlock_msg->volume_uuid);
+	const host_entry_t *host = &keyclient->keydb->hosts[0];
+	const volume_entry_t* volume = keydb_get_volume_by_uuid(host, unlock_msg->volume_uuid);
 	char volume_uuid_str[ASCII_UUID_BUFSIZE];
 	sprintf_uuid(volume_uuid_str, unlock_msg->volume_uuid);
 	if (!volume) {
@@ -307,7 +307,7 @@ bool keyclient_start(const struct pgmopts_client_t *opts) {
 			break;
 		}
 
-		struct host_entry_t *host = &keyclient.keydb->hosts[0];
+		host_entry_t *host = &keyclient.keydb->hosts[0];
 		if (host->volume_count == 0) {
 			log_msg(LLVL_FATAL, "No volumes found in exported database %s.", opts->filename);
 			success = false;

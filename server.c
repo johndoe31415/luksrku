@@ -52,7 +52,7 @@
 #include "vaulted_keydb.h"
 
 struct keyserver_t {
-	struct keydb_t* keydb;
+	keydb_t* keydb;
 	struct vaulted_keydb_t *vaulted_keydb;
 	struct generic_tls_ctx_t gctx;
 	const struct pgmopts_server_t *opts;
@@ -61,14 +61,14 @@ struct keyserver_t {
 
 struct client_thread_ctx_t {
 	struct generic_tls_ctx_t *gctx;
-	const struct keydb_t *keydb;
+	const keydb_t *keydb;
 	struct vaulted_keydb_t *vaulted_keydb;
-	const struct host_entry_t *host;
+	const host_entry_t *host;
 	int fd;
 };
 
 struct udp_listen_thread_ctx_t {
-	const struct keydb_t *keydb;
+	const keydb_t *keydb;
 	int udp_sd;
 	unsigned int port;
 };
@@ -165,7 +165,7 @@ static void client_handler_thread(void *vctx) {
 				 * client by filling the UUID fields */
 				struct msg_t msgs[client->host->volume_count];
 				for (unsigned int i = 0; i < client->host->volume_count; i++) {
-					const struct volume_entry_t *volume = &client->host->volumes[i];
+					const volume_entry_t *volume = &client->host->volumes[i];
 					memcpy(msgs[i].volume_uuid, volume->volume_uuid, 16);
 				}
 

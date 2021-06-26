@@ -35,9 +35,9 @@ static struct luks_passphrase_vault_entry_t *vaulted_keydb_get_luks_passphrase_f
 	return ((struct luks_passphrase_vault_entry_t*)vkeydb->luks_passphrase_vault->data) + host_index;
 }
 
-static void move_data_into_vault(struct vaulted_keydb_t *dest, struct keydb_t *src) {
+static void move_data_into_vault(struct vaulted_keydb_t *dest, keydb_t *src) {
 	for (unsigned int i = 0; i < src->host_count; i++) {
-		struct host_entry_t *host = &src->hosts[i];
+		host_entry_t *host = &src->hosts[i];
 
 		/* Copy over TLS-PSK and remove original */
 		struct tls_psk_vault_entry_t *dest_tls_psk = vaulted_keydb_get_tls_psk_for_hostindex(dest, i);
@@ -47,14 +47,14 @@ static void move_data_into_vault(struct vaulted_keydb_t *dest, struct keydb_t *s
 		/* Copy over all LUKS keys and remove originals */
 		struct luks_passphrase_vault_entry_t *dest_luks_passphrase = vaulted_keydb_get_luks_passphrase_for_hostindex(dest, i);
 		for (unsigned int j = 0; j < host->volume_count; j++) {
-			struct volume_entry_t *volume = &host->volumes[j];
+			volume_entry_t *volume = &host->volumes[j];
 			memcpy(&dest_luks_passphrase->volumes[j].luks_passphrase_raw, volume->luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
 			OPENSSL_cleanse(volume->luks_passphrase_raw, LUKS_PASSPHRASE_RAW_SIZE_BYTES);
 		}
 	}
 }
 
-bool vaulted_keydb_get_tls_psk(struct vaulted_keydb_t *vaulted_keydb, uint8_t dest[PSK_SIZE_BYTES], const struct host_entry_t *host) {
+bool vaulted_keydb_get_tls_psk(struct vaulted_keydb_t *vaulted_keydb, uint8_t dest[PSK_SIZE_BYTES], const host_entry_t *host) {
 	int host_index = keydb_get_host_index(vaulted_keydb->keydb, host);
 	if (host_index < 0) {
 		log_msg(LLVL_FATAL, "Unable to retrieve host index for vaulted key db entry.");
@@ -83,7 +83,7 @@ bool vaulted_keydb_get_tls_psk(struct vaulted_keydb_t *vaulted_keydb, uint8_t de
 	return true;
 }
 
-bool vaulted_keydb_get_volume_luks_passphases_raw(struct vaulted_keydb_t *vaulted_keydb, void (*copy_callback)(void *vctx, unsigned int volume_index, const void *source), void *copy_ctx, const struct host_entry_t *host) {
+bool vaulted_keydb_get_volume_luks_passphases_raw(struct vaulted_keydb_t *vaulted_keydb, void (*copy_callback)(void *vctx, unsigned int volume_index, const void *source), void *copy_ctx, const host_entry_t *host) {
 	int host_index = keydb_get_host_index(vaulted_keydb->keydb, host);
 	if (host_index < 0) {
 		log_msg(LLVL_FATAL, "Unable to retrieve host index for vaulted key db entry.");
@@ -112,7 +112,7 @@ bool vaulted_keydb_get_volume_luks_passphases_raw(struct vaulted_keydb_t *vaulte
 	return true;
 }
 
-struct vaulted_keydb_t *vaulted_keydb_new(struct keydb_t *keydb) {
+struct vaulted_keydb_t *vaulted_keydb_new(keydb_t *keydb) {
 	struct vaulted_keydb_t *vaulted_keydb = calloc(1, sizeof(struct vaulted_keydb_t));
 	if (!vaulted_keydb) {
 		log_msg(LLVL_FATAL, "Unable to calloc(3) vaulted keydb");

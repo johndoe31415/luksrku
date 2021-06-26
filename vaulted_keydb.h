@@ -38,15 +38,15 @@ struct luks_passphrase_vault_entry_t {
 };
 
 struct vaulted_keydb_t {
-	struct keydb_t *keydb;
+	keydb_t *keydb;
 	struct vault_t *tls_psk_vault;
 	struct vault_t *luks_passphrase_vault;
 };
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-bool vaulted_keydb_get_tls_psk(struct vaulted_keydb_t *vaulted_keydb, uint8_t dest[PSK_SIZE_BYTES], const struct host_entry_t *host);
-bool vaulted_keydb_get_volume_luks_passphases_raw(struct vaulted_keydb_t *vaulted_keydb, void (*copy_callback)(void *ctx, unsigned int volume_index, const void *source), void *copy_ctx, const struct host_entry_t *host);
-struct vaulted_keydb_t *vaulted_keydb_new(struct keydb_t *keydb);
+bool vaulted_keydb_get_tls_psk(struct vaulted_keydb_t *vaulted_keydb, uint8_t dest[PSK_SIZE_BYTES], const host_entry_t *host);
+bool vaulted_keydb_get_volume_luks_passphases_raw(struct vaulted_keydb_t *vaulted_keydb, void (*copy_callback)(void *ctx, unsigned int volume_index, const void *source), void *copy_ctx, const host_entry_t *host);
+struct vaulted_keydb_t *vaulted_keydb_new(keydb_t *keydb);
 void vaulted_keydb_free(struct vaulted_keydb_t *vaulted_keydb);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 

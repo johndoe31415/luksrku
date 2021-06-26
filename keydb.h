@@ -30,48 +30,62 @@
 #include "file_encryption.h"
 #include "global.h"
 
-#define KEYDB_VERSION							2
+#define KEYDB_CURRENT_VERSION						2
 
-struct volume_entry_t {
+enum volume_flag_t {
+	VOLUME_FLAG_ALLOW_DISCARD = (1 << 0),
+};
+
+struct keydb_common_header_t {
+	unsigned int keydb_version;
+};
+
+struct volume_entry_v2_t {
 	uint8_t volume_uuid[16];										/* UUID of crypt_LUKS volume */
 	char devmapper_name[MAX_DEVMAPPER_NAME_LENGTH];					/* dmsetup name when unlocked. Zero-terminated string. */
 	uint8_t luks_passphrase_raw[LUKS_PASSPHRASE_RAW_SIZE_BYTES];	/* LUKS passphrase used to unlock volume; raw byte data */
 };
 
-struct host_entry_t {
+struct host_entry_v2_t {
 	uint8_t host_uuid[16];											/* Host UUID */
 	char host_name[MAX_HOST_NAME_LENGTH];							/* Descriptive name of host */
 	uint8_t tls_psk[PSK_SIZE_BYTES];								/* Raw byte data of TLS-PSK that is used */
 	unsigned int volume_count;										/* Number of volumes of this host */
-	struct volume_entry_t volumes[MAX_VOLUMES_PER_HOST];			/* Volumes of this host */
+	struct volume_entry_v2_t volumes[MAX_VOLUMES_PER_HOST];			/* Volumes of this host */
 };
 
-struct keydb_t {
-	unsigned int keydb_version;
+struct keydb_v2_t {
+	struct keydb_common_header_t common;
 	bool server_database;
 	unsigned int host_count;
-	struct host_entry_t hosts[];
+	struct host_entry_v2_t hosts[];
 };
 
+
+typedef struct volume_entry_v2_t volume_entry_t;
+typedef struct host_entry_v2_t host_entry_t;
+typedef struct keydb_v2_t keydb_t;
+
+
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/
-struct keydb_t* keydb_new(void);
-struct keydb_t* keydb_export_public(struct host_entry_t *host);
-void keydb_free(struct keydb_t *keydb);
-struct volume_entry_t* keydb_get_volume_by_name(struct host_entry_t *host, const char *devmapper_name);
-struct host_entry_t* keydb_get_host_by_name(struct keydb_t *keydb, const char *host_name);
-const struct volume_entry_t* keydb_get_volume_by_uuid(const struct host_entry_t *host, const uint8_t uuid[static 16]);
-int keydb_get_host_index(const struct keydb_t *keydb, const struct host_entry_t *host);
-int keydb_get_volume_index(const struct host_entry_t *host, const struct volume_entry_t *volume);
-const struct host_entry_t* keydb_get_host_by_uuid(const struct keydb_t *keydb, const uint8_t uuid[static 16]);
-bool keydb_add_host(struct keydb_t **keydb, const char *host_name);
-bool keydb_del_host_by_name(struct keydb_t **keydb, const char *host_name);
-bool keydb_rekey_host(struct host_entry_t *host);
-struct volume_entry_t* keydb_add_volume(struct host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]);
-bool keydb_del_volume(struct host_entry_t *host, const char *devmapper_name);
-bool keydb_rekey_volume(struct volume_entry_t *volume);
-bool keydb_get_volume_luks_passphrase(const struct volume_entry_t *volume, char *dest, unsigned int dest_buffer_size);
-bool keydb_write(const struct keydb_t *keydb, const char *filename, const char *passphrase);
-struct keydb_t* keydb_read(const char *filename);
+keydb_t* keydb_new(void);
+keydb_t* keydb_export_public(host_entry_t *host);
+void keydb_free(keydb_t *keydb);
+volume_entry_t* keydb_get_volume_by_name(host_entry_t *host, const char *devmapper_name);
+host_entry_t* keydb_get_host_by_name(keydb_t *keydb, const char *host_name);
+const volume_entry_t* keydb_get_volume_by_uuid(const host_entry_t *host, const uint8_t uuid[static 16]);
+int keydb_get_host_index(const keydb_t *keydb, const host_entry_t *host);
+int keydb_get_volume_index(const host_entry_t *host, const volume_entry_t *volume);
+const host_entry_t* keydb_get_host_by_uuid(const keydb_t *keydb, const uint8_t uuid[static 16]);
+bool keydb_add_host(keydb_t **keydb, const char *host_name);
+bool keydb_del_host_by_name(keydb_t **keydb, const char *host_name);
+bool keydb_rekey_host(host_entry_t *host);
+volume_entry_t* keydb_add_volume(host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]);
+bool keydb_del_volume(host_entry_t *host, const char *devmapper_name);
+bool keydb_rekey_volume(volume_entry_t *volume);
+bool keydb_get_volume_luks_passphrase(const volume_entry_t *volume, char *dest, unsigned int dest_buffer_size);
+bool keydb_write(const keydb_t *keydb, const char *filename, const char *passphrase);
+keydb_t* keydb_read(const char *filename);
 /***************  AUTO GENERATED SECTION ENDS   ***************/
 
 #endif
