@@ -33,12 +33,28 @@
 #include "uuid.h"
 #include "log.h"
 
+static unsigned int keydb_getsize_v3_hostcount(unsigned int host_count) {
+	return sizeof(struct keydb_v3_t) + (host_count * sizeof(struct host_entry_v3_t));
+}
+
+static unsigned int keydb_getsize_v3(const struct keydb_v3_t *keydb) {
+	return keydb_getsize_v3_hostcount(keydb->host_count);
+}
+
+static unsigned int keydb_getsize_v2_hostcount(unsigned int host_count) {
+	return sizeof(struct keydb_v2_t) + (host_count * sizeof(struct host_entry_v2_t));
+}
+
+static unsigned int keydb_getsize_v2(const struct keydb_v2_t *keydb) {
+	return keydb_getsize_v2_hostcount(keydb->host_count);
+}
+
 static unsigned int keydb_getsize_hostcount(unsigned int host_count) {
-	return sizeof(keydb_t) + (host_count * sizeof(host_entry_t));
+	return keydb_getsize_v3_hostcount(host_count);
 }
 
 static unsigned int keydb_getsize(const keydb_t *keydb) {
-	return keydb_getsize_hostcount(keydb->host_count);
+	return keydb_getsize_v3(keydb);
 }
 
 keydb_t* keydb_new(void) {
@@ -266,26 +282,79 @@ static bool passphrase_callback(char *buffer, unsigned int bufsize) {
 	return query_passphrase("Database passphrase: ", buffer, bufsize);
 }
 
+static bool keydb_migrate_v2_to_v3(void **keydb_data, unsigned int *keydb_data_size) {
+	log_msg(LLVL_INFO, "Migrating keydb version 2 to version 3");
+	struct keydb_v2_t *old_db = *((struct keydb_v2_t **)keydb_data);
+	unsigned int new_db_size = keydb_getsize_v3_hostcount(old_db->host_count);
+	struct keydb_v3_t *new_db = calloc(1, new_db_size);
+	if (!new_db) {
+		log_msg(LLVL_ERROR, "keydb migration failed to allocate %d bytes of memory", new_db_size);
+		return false;
+	}
+
+	*new_db = (struct keydb_v3_t) {
+		.common.keydb_version = 3,
+		.server_database = old_db->server_database,
+		.host_count = old_db->host_count,
+	};
+	for (unsigned int i = 0; i < new_db->host_count; i++) {
+		memcpy(&new_db->hosts[i], &old_db->hosts[i], sizeof(old_db->hosts[i]) - sizeof(old_db->hosts[i].volumes));
+		for (unsigned int j = 0; j < new_db->hosts[i].volume_count; j++) {
+			memcpy(&new_db->hosts[i].volumes[j], &old_db->hosts[i].volumes[j], sizeof(old_db->hosts[i].volumes[j]));
+		}
+	}
+
+	OPENSSL_cleanse(old_db, *keydb_data_size);
+	free(old_db);
+
+	*keydb_data = new_db;
+	*keydb_data_size = new_db_size;
+	return true;
+}
+
+static keydb_t* keydb_migrate(void **keydb_data, unsigned int *keydb_data_size) {
+	struct keydb_common_header_t *header;
+
+	header = *((struct keydb_common_header_t**)keydb_data);
+	if (header->keydb_version == 2) {
+		if (*keydb_data_size != keydb_getsize_v2(*keydb_data)) {
+			log_msg(LLVL_ERROR, "keydb version 2 has wrong size (%u bytes, but expected %u bytes).", *keydb_data_size, keydb_getsize_v2(*keydb_data));
+			return NULL;
+		}
+		if (!keydb_migrate_v2_to_v3(keydb_data, keydb_data_size)) {
+			log_msg(LLVL_ERROR, "keydb version 2 to 3 migration failed.");
+			return NULL;
+		}
+	}
+
+	header = *((struct keydb_common_header_t**)keydb_data);
+	if (header->keydb_version == 3) {
+		if (*keydb_data_size != keydb_getsize_v3(*keydb_data)) {
+			log_msg(LLVL_ERROR, "keydb version 3 has wrong size (%u bytes, but expected %u bytes).", *keydb_data_size, keydb_getsize_v2(*keydb_data));
+			return NULL;
+		}
+	}
+
+	header = *((struct keydb_common_header_t**)keydb_data);
+	if (header->keydb_version != KEYDB_CURRENT_VERSION) {
+		log_msg(LLVL_ERROR, "keydb could be read, but is of version %u (we expected %u).", header->keydb_version, KEYDB_CURRENT_VERSION);
+		return NULL;
+	}
+	return *((keydb_t**)keydb_data);
+
+}
+
 keydb_t* keydb_read(const char *filename) {
 	struct decrypted_file_t decrypted_file = read_encrypted_file(filename, passphrase_callback);
 	if (!decrypted_file.success) {
 		return NULL;
 	}
 
-	keydb_t *keydb = (keydb_t*)decrypted_file.data;
-	if (keydb->common.keydb_version != KEYDB_CURRENT_VERSION) {
-		log_msg(LLVL_ERROR, "keydb in %s could be read, but is of version %u (we expected %u).", filename, keydb->common.keydb_version, KEYDB_CURRENT_VERSION);
+	keydb_t *keydb = keydb_migrate(&decrypted_file.data, &decrypted_file.data_length);
+	if (!keydb) {
 		OPENSSL_cleanse(decrypted_file.data, decrypted_file.data_length);
 		free(decrypted_file.data);
 		return NULL;
 	}
-
-	if (decrypted_file.data_length != keydb_getsize(keydb)) {
-		log_msg(LLVL_ERROR, "keydb in %s could be read, but was %u bytes long (we expected %u).", filename, decrypted_file.data_length, keydb_getsize(keydb));
-		OPENSSL_cleanse(decrypted_file.data, decrypted_file.data_length);
-		free(decrypted_file.data);
-		return NULL;
-	}
-
 	return keydb;
 }

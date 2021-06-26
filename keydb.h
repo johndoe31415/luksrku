@@ -30,7 +30,6 @@
 #include "file_encryption.h"
 #include "global.h"
 
-#define KEYDB_CURRENT_VERSION						2
 
 enum volume_flag_t {
 	VOLUME_FLAG_ALLOW_DISCARD = (1 << 0),
@@ -61,10 +60,33 @@ struct keydb_v2_t {
 	struct host_entry_v2_t hosts[];
 };
 
+struct volume_entry_v3_t {
+	uint8_t volume_uuid[16];										/* UUID of crypt_LUKS volume */
+	char devmapper_name[MAX_DEVMAPPER_NAME_LENGTH];					/* dmsetup name when unlocked. Zero-terminated string. */
+	uint8_t luks_passphrase_raw[LUKS_PASSPHRASE_RAW_SIZE_BYTES];	/* LUKS passphrase used to unlock volume; raw byte data */
+	unsigned int volume_flags;										/* Bitset of enum volume_flag_t */
+};
 
-typedef struct volume_entry_v2_t volume_entry_t;
-typedef struct host_entry_v2_t host_entry_t;
-typedef struct keydb_v2_t keydb_t;
+struct host_entry_v3_t {
+	uint8_t host_uuid[16];											/* Host UUID */
+	char host_name[MAX_HOST_NAME_LENGTH];							/* Descriptive name of host */
+	uint8_t tls_psk[PSK_SIZE_BYTES];								/* Raw byte data of TLS-PSK that is used */
+	unsigned int volume_count;										/* Number of volumes of this host */
+	struct volume_entry_v3_t volumes[MAX_VOLUMES_PER_HOST];			/* Volumes of this host */
+};
+
+struct keydb_v3_t {
+	struct keydb_common_header_t common;
+	bool server_database;
+	unsigned int host_count;
+	struct host_entry_v3_t hosts[];
+};
+
+
+#define KEYDB_CURRENT_VERSION						3
+typedef struct volume_entry_v3_t volume_entry_t;
+typedef struct host_entry_v3_t host_entry_t;
+typedef struct keydb_v3_t keydb_t;
 
 
 /*************** AUTO GENERATED SECTION FOLLOWS ***************/

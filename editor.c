@@ -471,7 +471,7 @@ static enum cmd_returncode_t cmd_rawdump(struct editor_context_t *ctx, const cha
 	if (!ctx->keydb) {
 		return COMMAND_SUCCESS;
 	}
-	fprintf(stderr, "Version %d, %s, %d hosts.\n", ctx->keydb->keydb_version, ctx->keydb->server_database ? "server" : "client", ctx->keydb->host_count);
+	fprintf(stderr, "Version %d, %s, %d hosts.\n", ctx->keydb->common.keydb_version, ctx->keydb->server_database ? "server" : "client", ctx->keydb->host_count);
 	for (unsigned int i = 0; i < ctx->keydb->host_count; i++) {
 		host_entry_t *host = &ctx->keydb->hosts[i];
 		fprintf(stderr, "Host %d:\n", i);
