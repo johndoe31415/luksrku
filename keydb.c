@@ -184,7 +184,7 @@ bool keydb_del_host_by_name(struct keydb_t **keydb, const char *host_name) {
 
 	int host_index = keydb_get_host_index(old_keydb, host);
 	if (host_index < 0) {
-		log_msg(LLVL_FATAL, "Fatal error determining host index of \"%s\" for host \"%s\".", host_name);
+		log_msg(LLVL_FATAL, "Fatal error determining host index for hostname \"%s\".", host_name);
 		return false;
 	}
 
@@ -217,7 +217,7 @@ struct volume_entry_t* keydb_add_volume(struct host_entry_t *host, const char *d
 	memcpy(volume->volume_uuid, volume_uuid, 16);
 	strncpy(volume->devmapper_name, devmapper_name, sizeof(volume->devmapper_name) - 1);
 	if (!buffer_randomize(volume->luks_passphrase_raw, sizeof(volume->luks_passphrase_raw))) {
-		log_msg(LLVL_ERROR, "Failed to produce %d bytes of entropy for LUKS passphrase.", sizeof(volume->luks_passphrase_raw));
+		log_msg(LLVL_ERROR, "Failed to produce %ld bytes of entropy for LUKS passphrase.", sizeof(volume->luks_passphrase_raw));
 		return NULL;
 	}
 	host->volume_count++;
@@ -274,14 +274,14 @@ struct keydb_t* keydb_read(const char *filename) {
 
 	struct keydb_t *keydb = (struct keydb_t*)decrypted_file.data;
 	if (keydb->keydb_version != KEYDB_VERSION) {
-		log_msg(LLVL_ERROR, "keydb in %s could be read, but is of version %u (we expected %u).", keydb->keydb_version, KEYDB_VERSION);
+		log_msg(LLVL_ERROR, "keydb in %s could be read, but is of version %u (we expected %u).", filename, keydb->keydb_version, KEYDB_VERSION);
 		OPENSSL_cleanse(decrypted_file.data, decrypted_file.data_length);
 		free(decrypted_file.data);
 		return NULL;
 	}
 
 	if (decrypted_file.data_length != keydb_getsize(keydb)) {
-		log_msg(LLVL_ERROR, "keydb in %s could be read, but was %u bytes long (we expected %u).", decrypted_file.data_length, keydb_getsize(keydb));
+		log_msg(LLVL_ERROR, "keydb in %s could be read, but was %u bytes long (we expected %u).", filename, decrypted_file.data_length, keydb_getsize(keydb));
 		OPENSSL_cleanse(decrypted_file.data, decrypted_file.data_length);
 		free(decrypted_file.data);
 		return NULL;

@@ -298,7 +298,7 @@ struct decrypted_file_t read_encrypted_file(const char *filename, passphrase_cal
 		/* Check if the file is long enough to be an encrypted file */
 		const unsigned int encrypted_file_size = statbuf.st_size;
 		if (encrypted_file_size < sizeof(struct encrypted_file_t)) {
-			log_msg(LLVL_ERROR, "%s: too small to be encrypted file (%u bytes)", encrypted_file_size);
+			log_msg(LLVL_ERROR, "%s: too small to be encrypted file (%u bytes)", filename, encrypted_file_size);
 			result.success = false;
 			break;
 		}

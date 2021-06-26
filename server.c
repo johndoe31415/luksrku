@@ -107,7 +107,7 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 	struct client_thread_ctx_t *ctx = (struct client_thread_ctx_t*)SSL_get_app_data(ssl);
 
 	if (identity_len != ASCII_UUID_CHARACTER_COUNT) {
-		log_msg(LLVL_WARNING, "Received client identity of length %d, cannot be a UUID.", identity_len);
+		log_msg(LLVL_WARNING, "Received client identity of length %ld, cannot be a UUID.", identity_len);
 		return 0;
 	}
 
@@ -115,7 +115,7 @@ static int psk_server_callback(SSL *ssl, const unsigned char *identity, size_t i
 	memcpy(uuid_str, identity, ASCII_UUID_CHARACTER_COUNT);
 	uuid_str[ASCII_UUID_CHARACTER_COUNT] = 0;
 	if (!is_valid_uuid(uuid_str)) {
-		log_msg(LLVL_WARNING, "Received client identity of length %d, but not a valid UUID.", identity_len);
+		log_msg(LLVL_WARNING, "Received client identity of length %ld, but not a valid UUID.", identity_len);
 		return 0;
 	}
 
@@ -175,7 +175,7 @@ static void client_handler_thread(void *vctx) {
 				int txlen = SSL_write(ssl, &msgs, sizeof(msgs));
 				OPENSSL_cleanse(&msgs, sizeof(msgs));
 				if (txlen != (long)sizeof(msgs)) {
-					log_msg(LLVL_WARNING, "Tried to send message of %d bytes, but sent %d. Severing connection to client.", sizeof(msgs), txlen);
+					log_msg(LLVL_WARNING, "Tried to send message of %ld bytes, but sent %d. Severing connection to client.", sizeof(msgs), txlen);
 				}
 			} else {
 				log_msg(LLVL_FATAL, "Client connected, but no host set.");

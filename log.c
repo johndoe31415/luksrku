@@ -57,7 +57,7 @@ bool should_log(enum loglvl_t level) {
 	return level <= current_loglvl;
 }
 
-void log_msg(enum loglvl_t level, const char *msg, ...) {
+void __attribute__ ((format (printf, 2, 3))) log_msg(enum loglvl_t level, const char *msg, ...) {
 	if (!should_log(level)) {
 		/* Suppress message */
 		return;
@@ -94,7 +94,7 @@ static int log_openssl_error_callback(const char *msg, size_t len, void *vlvlptr
 	truncate_crlf(msgcopy);
 
 	enum loglvl_t* levelptr = (enum loglvl_t*)vlvlptr;
-	log_msg(*levelptr, msgcopy);
+	log_msg(*levelptr, "%s", msgcopy);
 	return 0;
 }
 
