@@ -69,6 +69,7 @@ static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const 
 static enum cmd_returncode_t cmd_del_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_rekey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_showkey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
+static enum cmd_returncode_t cmd_flag_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_open(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_save(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_export(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
@@ -148,6 +149,14 @@ static const struct editor_command_t commands[] = {
 		.min_params = 2,
 		.max_params = 2,
 		.description = "Shows the LUKS passphrase of a volume of a hostname",
+	},
+	{
+		.cmdnames = { "flag_volume" },
+		.callback = cmd_flag_volume,
+		.param_names = "[hostname] [devmappername] [(+-)flagname]",
+		.min_params = 3,
+		.max_params = 3,
+		.description = "Edits the flags of a volume",
 	},
 	{
 		.cmdnames = { "open", "load" },
@@ -236,7 +245,15 @@ static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *
 		for (unsigned int j = 0; j < host->volume_count; j++) {
 			const volume_entry_t *volume = &host->volumes[j];
 			sprintf_uuid(uuid, volume->volume_uuid);
-			printf("        Volume %d: \"%s\" UUID %s\n", j + 1, volume->devmapper_name, uuid);
+			printf("        Volume %d: \"%s\" UUID %s   ", j + 1, volume->devmapper_name, uuid);
+			if (volume->volume_flags == 0) {
+				printf("defaults");
+			} else {
+				if (volume->volume_flags & VOLUME_FLAG_ALLOW_DISCARD) {
+					printf("allow_discard ");
+				}
+			}
+			printf("\n");
 		}
 	}
 	return COMMAND_SUCCESS;
@@ -374,6 +391,38 @@ static enum cmd_returncode_t cmd_showkey_volume(struct editor_context_t *ctx, co
 	}
 
 	return cmd_do_showkey_volume(volume);
+}
+
+static enum cmd_returncode_t cmd_flag_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	const char *host_name = params[0];
+	const char *devmapper_name = params[1];
+	const char *flag_str = params[2];
+
+	volume_entry_t *volume = cmd_getvolume(ctx, host_name, devmapper_name);
+	if (!volume) {
+		return COMMAND_FAILURE;
+	}
+
+	if ((flag_str[0] != '+') && (flag_str[0] != '-')) {
+		fprintf(stderr, "Flag string must start with '+' or '-' for adding or removing a flag.\n");
+		return COMMAND_FAILURE;
+	}
+
+	unsigned int flag_value = 0;
+	if (!strcasecmp(flag_str + 1, "discard")) {
+		flag_value = VOLUME_FLAG_ALLOW_DISCARD;
+	} else {
+		fprintf(stderr, "Invalid flag '%s': allowed is only 'discard'.\n", flag_str + 1);
+		return COMMAND_FAILURE;
+	}
+
+	if (flag_str[0] == '+') {
+		volume->volume_flags |= flag_value;
+	} else {
+		volume->volume_flags &= ~flag_value;
+	}
+
+	return COMMAND_SUCCESS;
 }
 
 static enum cmd_returncode_t cmd_open(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
