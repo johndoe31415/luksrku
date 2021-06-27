@@ -256,7 +256,7 @@ static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *
 		} else {
 			printf("default timeout %d secs", host->client_default_timeout_secs);
 		}
-		printf(":\n\n");
+		printf(":\n");
 		for (unsigned int j = 0; j < host->volume_count; j++) {
 			const volume_entry_t *volume = &host->volumes[j];
 			sprintf_uuid(uuid, volume->volume_uuid);
