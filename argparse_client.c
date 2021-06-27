@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2019-10-25 20:39:16
+ *   Generated at: 2021-06-27 13:24:40
  */
 
 #include <stdint.h>
@@ -154,21 +154,18 @@ void argparse_client_show_syntax(void) {
 	fprintf(stderr, "Connects to a luksrku key server and unlocks local LUKS volumes.\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "positional arguments:\n");
-	fprintf(stderr, "  filename              Exported database file to load TLS-PSKs and list of\n");
-	fprintf(stderr, "                        disks from.\n");
-	fprintf(stderr, "  hostname              When hostname is given, auto-searching for suitable\n");
-	fprintf(stderr, "                        servers is disabled and only a connection to the given\n");
-	fprintf(stderr, "                        hostname is attempted.\n");
+	fprintf(stderr, "  filename              Exported database file to load TLS-PSKs and list of disks from.\n");
+	fprintf(stderr, "  hostname              When hostname is given, auto-searching for suitable servers is disabled and\n");
+	fprintf(stderr, "                        only a connection to the given hostname is attempted.\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "optional arguments:\n");
 	fprintf(stderr, "  -t secs, --timeout secs\n");
-	fprintf(stderr, "                        When searching for a keyserver and not all volumes can\n");
-	fprintf(stderr, "                        be unlocked, abort after this period of time, given in\n");
-	fprintf(stderr, "                        seconds. Defaults to 60 seconds.\n");
-	fprintf(stderr, "  -p port, --port port  Port that is used for both UDP and TCP communication.\n");
-	fprintf(stderr, "                        Defaults to 23170.\n");
-	fprintf(stderr, "  --no-luks             Do not call LUKS/cryptsetup. Useful for testing\n");
-	fprintf(stderr, "                        unlocking procedure.\n");
+	fprintf(stderr, "                        When searching for a keyserver and not all volumes can be unlocked, abort\n");
+	fprintf(stderr, "                        after this period of time, given in seconds. Defaults to infinity. This\n");
+	fprintf(stderr, "                        argument can be specified as a host-based configuration parameter as well;\n");
+	fprintf(stderr, "                        the command-line argument always takes precedence.\n");
+	fprintf(stderr, "  -p port, --port port  Port that is used for both UDP and TCP communication. Defaults to 23170.\n");
+	fprintf(stderr, "  --no-luks             Do not call LUKS/cryptsetup. Useful for testing unlocking procedure.\n");
 	fprintf(stderr, "  -v, --verbose         Increase verbosity. Can be specified multiple times.\n");
 }
 

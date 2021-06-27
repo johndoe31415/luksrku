@@ -225,12 +225,7 @@ static bool all_volumes_unlocked(struct keyclient_t *keyclient) {
 	return locked_volume_count(keyclient) == 0;
 }
 
-static bool abort_searching_for_keyserver(struct keyclient_t *keyclient) {
-	if (all_volumes_unlocked(keyclient)) {
-		log_msg(LLVL_DEBUG, "All volumes unlocked successfully.");
-		return true;
-	}
-
+static unsigned int determine_timeout(struct keyclient_t *keyclient) {
 	unsigned int client_timeout_secs = 0;
 	if (keyclient->opts->timeout_seconds) {
 		/* Command line always has precedence */
@@ -239,8 +234,16 @@ static bool abort_searching_for_keyserver(struct keyclient_t *keyclient) {
 		/* Alternatively, take the one in the configuration file */
 		client_timeout_secs = keyclient->keydb->hosts[0].client_default_timeout_secs;
 	}
+	return client_timeout_secs;
+}
 
+static bool abort_searching_for_keyserver(struct keyclient_t *keyclient) {
+	if (all_volumes_unlocked(keyclient)) {
+		log_msg(LLVL_DEBUG, "All volumes unlocked successfully.");
+		return true;
+	}
 
+	unsigned int client_timeout_secs = determine_timeout(keyclient);
 	if (client_timeout_secs) {
 		double time_passed = now() - keyclient->broadcast_start_time;
 		if (time_passed >= client_timeout_secs) {
@@ -253,10 +256,20 @@ static bool abort_searching_for_keyserver(struct keyclient_t *keyclient) {
 }
 
 static bool broadcast_for_keyserver(struct keyclient_t *keyclient) {
+	{
+		unsigned int client_timeout_secs = determine_timeout(keyclient);
+		if (client_timeout_secs) {
+			log_msg(LLVL_DEBUG, "Searching luksrku keyserver, will give up after %u seconds", client_timeout_secs);
+		} else {
+			log_msg(LLVL_DEBUG, "Searching luksrku keyserver, will not give up until all volumes unlocked");
+		}
+	}
+
 	int sd = create_udp_socket(0, true, 1000);
 	if (sd == -1) {
 		return false;
 	}
+
 
 	keyclient->broadcast_start_time = now();
 	struct udp_query_t query;
