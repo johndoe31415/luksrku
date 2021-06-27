@@ -33,7 +33,7 @@
 #define ALIGNED		__attribute__ ((aligned(4)))
 
 enum volume_flag_t {
-	VOLUME_FLAG_ALLOW_DISCARD = (1 << 0),
+	VOLUME_FLAG_ALLOW_DISCARDS = (1 << 0),
 };
 
 /* Unused so far */

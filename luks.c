@@ -50,25 +50,39 @@ bool is_luks_device_opened(const char *mapping_name) {
 	return runresult.success && (runresult.returncode == 0);
 }
 
-bool open_luks_device(const uint8_t *encrypted_device_uuid, const char *mapping_name, const char *passphrase, unsigned int passphrase_length) {
+bool open_luks_device(const uint8_t *encrypted_device_uuid, const char *mapping_name, const char *passphrase, unsigned int passphrase_length, bool allow_discards) {
 	char encrypted_device[64];
 	strcpy(encrypted_device, "UUID=");
 	sprintf_uuid(encrypted_device + 5, encrypted_device_uuid);
 	log_msg(LLVL_INFO, "Trying to unlock LUKS mapping %s based on %s", mapping_name, encrypted_device);
 
 	struct exec_cmd_t cmd = {
-		.argv = (const char *[]){
+		.stdin_data = passphrase,
+		.stdin_length = passphrase_length,
+		.show_output = should_log(LLVL_DEBUG),
+	};
+
+	if (!allow_discards) {
+		cmd.argv = (const char *[]) {
 			"cryptsetup",
 			"luksOpen",
 			"-T", "1",
 			encrypted_device,
 			mapping_name,
 			NULL,
-		},
-		.stdin_data = passphrase,
-		.stdin_length = passphrase_length,
-		.show_output = should_log(LLVL_DEBUG),
-	};
+		};
+	} else {
+		cmd.argv = (const char *[]) {
+			"cryptsetup",
+			"--allow-discards",
+			"luksOpen",
+			"-T", "1",
+			encrypted_device,
+			mapping_name,
+			NULL,
+		};
+	}
+
 	struct exec_result_t runresult = exec_command(&cmd);
 	return runresult.success && (runresult.returncode == 0);
 }

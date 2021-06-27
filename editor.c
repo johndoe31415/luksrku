@@ -249,8 +249,8 @@ static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *
 			if (volume->volume_flags == 0) {
 				printf("defaults");
 			} else {
-				if (volume->volume_flags & VOLUME_FLAG_ALLOW_DISCARD) {
-					printf("allow_discard ");
+				if (volume->volume_flags & VOLUME_FLAG_ALLOW_DISCARDS) {
+					printf("allow_discards ");
 				}
 			}
 			printf("\n");
@@ -409,10 +409,10 @@ static enum cmd_returncode_t cmd_flag_volume(struct editor_context_t *ctx, const
 	}
 
 	unsigned int flag_value = 0;
-	if (!strcasecmp(flag_str + 1, "discard")) {
-		flag_value = VOLUME_FLAG_ALLOW_DISCARD;
+	if (!strcasecmp(flag_str + 1, "allow_discards")) {
+		flag_value = VOLUME_FLAG_ALLOW_DISCARDS;
 	} else {
-		fprintf(stderr, "Invalid flag '%s': allowed is only 'discard'.\n", flag_str + 1);
+		fprintf(stderr, "Invalid flag '%s': allowed is only 'allow_discards'.\n", flag_str + 1);
 		return COMMAND_FAILURE;
 	}
 

@@ -65,7 +65,8 @@ static bool unlock_luks_volume(const volume_entry_t *volume, const struct msg_t 
 	bool success = true;
 	char luks_passphrase[LUKS_PASSPHRASE_TEXT_SIZE_BYTES];
 	if (ascii_encode(luks_passphrase, sizeof(luks_passphrase), unlock_msg->luks_passphrase_raw, sizeof(unlock_msg->luks_passphrase_raw))) {
-		success = open_luks_device(volume->volume_uuid, volume->devmapper_name, luks_passphrase, strlen(luks_passphrase));
+		bool allow_discards = volume->volume_flags & VOLUME_FLAG_ALLOW_DISCARDS;
+		success = open_luks_device(volume->volume_uuid, volume->devmapper_name, luks_passphrase, strlen(luks_passphrase), allow_discards);
 	} else {
 		log_msg(LLVL_FATAL, "Failed to transcribe raw LUKS passphrase to text form.");
 		success = false;
