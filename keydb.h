@@ -78,6 +78,7 @@ struct host_entry_v3_t {
 	char host_name[MAX_HOST_NAME_LENGTH];							/* Descriptive name of host */
 	uint8_t tls_psk[PSK_SIZE_BYTES];								/* Raw byte data of TLS-PSK that is used */
 	unsigned int volume_count;										/* Number of volumes of this host */
+	unsigned int client_default_timeout_secs;						/* Client gives up by default if not everything unlocked after this time */
 	unsigned int host_flags;										/* Bitset of enum host_flag_t */
 	struct volume_entry_v3_t volumes[MAX_VOLUMES_PER_HOST];			/* Volumes of this host */
 } ALIGNED;

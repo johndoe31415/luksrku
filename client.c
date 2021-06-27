@@ -231,10 +231,20 @@ static bool abort_searching_for_keyserver(struct keyclient_t *keyclient) {
 		return true;
 	}
 
+	unsigned int client_timeout_secs = 0;
 	if (keyclient->opts->timeout_seconds) {
+		/* Command line always has precedence */
+		client_timeout_secs = keyclient->opts->timeout_seconds;
+	} else {
+		/* Alternatively, take the one in the configuration file */
+		client_timeout_secs = keyclient->keydb->hosts[0].client_default_timeout_secs;
+	}
+
+
+	if (client_timeout_secs) {
 		double time_passed = now() - keyclient->broadcast_start_time;
-		if (time_passed >= keyclient->opts->timeout_seconds) {
-			log_msg(LLVL_WARNING, "Could not unlock all volumes after %u seconds, giving up. %d volumes still locked.", keyclient->opts->timeout_seconds, locked_volume_count(keyclient));
+		if (time_passed >= client_timeout_secs) {
+			log_msg(LLVL_WARNING, "Could not unlock all volumes after %u seconds, giving up. %d volumes still locked.", client_timeout_secs, locked_volume_count(keyclient));
 			return true;
 		}
 	}

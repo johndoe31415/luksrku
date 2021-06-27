@@ -332,7 +332,7 @@ static keydb_t* keydb_migrate(void **keydb_data, unsigned int *keydb_data_size) 
 	header = *((struct keydb_common_header_t**)keydb_data);
 	if (header->keydb_version == 3) {
 		if (*keydb_data_size != keydb_getsize_v3(*keydb_data)) {
-			log_msg(LLVL_ERROR, "keydb version 3 has wrong size (%u bytes, but expected %u bytes).", *keydb_data_size, keydb_getsize_v2(*keydb_data));
+			log_msg(LLVL_ERROR, "keydb version 3 has wrong size (%u bytes, but expected %u bytes).", *keydb_data_size, keydb_getsize_v3(*keydb_data));
 			return NULL;
 		}
 	}
