@@ -241,7 +241,13 @@ static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *
 		const host_entry_t *host = &ctx->keydb->hosts[i];
 		char uuid[48];
 		sprintf_uuid(uuid, host->host_uuid);
-		printf("    Host %d: \"%s\" UUID %s -- %d volumes:\n", i + 1, host->host_name, uuid, host->volume_count);
+		printf("    Host %d: \"%s\" UUID %s -- %d volumes, ", i + 1, host->host_name, uuid, host->volume_count);
+		if (!host->client_default_timeout_secs) {
+			printf("no default timeout");
+		} else {
+			printf("default timeout %d secs", host->client_default_timeout_secs);
+		}
+		printf(":\n\n");
 		for (unsigned int j = 0; j < host->volume_count; j++) {
 			const volume_entry_t *volume = &host->volumes[j];
 			sprintf_uuid(uuid, volume->volume_uuid);
