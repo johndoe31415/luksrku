@@ -30,20 +30,26 @@
 #include "file_encryption.h"
 #include "global.h"
 
+#define ALIGNED		__attribute__ ((aligned(4)))
 
 enum volume_flag_t {
 	VOLUME_FLAG_ALLOW_DISCARD = (1 << 0),
 };
 
+/* Unused so far */
+enum host_flag_t {
+	HOST_FLAG_UNUSED = 0,
+};
+
 struct keydb_common_header_t {
 	unsigned int keydb_version;
-};
+} ALIGNED;
 
 struct volume_entry_v2_t {
 	uint8_t volume_uuid[16];										/* UUID of crypt_LUKS volume */
 	char devmapper_name[MAX_DEVMAPPER_NAME_LENGTH];					/* dmsetup name when unlocked. Zero-terminated string. */
 	uint8_t luks_passphrase_raw[LUKS_PASSPHRASE_RAW_SIZE_BYTES];	/* LUKS passphrase used to unlock volume; raw byte data */
-};
+} ALIGNED;
 
 struct host_entry_v2_t {
 	uint8_t host_uuid[16];											/* Host UUID */
@@ -51,36 +57,37 @@ struct host_entry_v2_t {
 	uint8_t tls_psk[PSK_SIZE_BYTES];								/* Raw byte data of TLS-PSK that is used */
 	unsigned int volume_count;										/* Number of volumes of this host */
 	struct volume_entry_v2_t volumes[MAX_VOLUMES_PER_HOST];			/* Volumes of this host */
-};
+} ALIGNED;
 
 struct keydb_v2_t {
 	struct keydb_common_header_t common;
 	bool server_database;
 	unsigned int host_count;
 	struct host_entry_v2_t hosts[];
-};
+} ALIGNED;
 
 struct volume_entry_v3_t {
 	uint8_t volume_uuid[16];										/* UUID of crypt_LUKS volume */
 	char devmapper_name[MAX_DEVMAPPER_NAME_LENGTH];					/* dmsetup name when unlocked. Zero-terminated string. */
 	uint8_t luks_passphrase_raw[LUKS_PASSPHRASE_RAW_SIZE_BYTES];	/* LUKS passphrase used to unlock volume; raw byte data */
 	unsigned int volume_flags;										/* Bitset of enum volume_flag_t */
-};
+} ALIGNED;
 
 struct host_entry_v3_t {
 	uint8_t host_uuid[16];											/* Host UUID */
 	char host_name[MAX_HOST_NAME_LENGTH];							/* Descriptive name of host */
 	uint8_t tls_psk[PSK_SIZE_BYTES];								/* Raw byte data of TLS-PSK that is used */
 	unsigned int volume_count;										/* Number of volumes of this host */
+	unsigned int host_flags;										/* Bitset of enum host_flag_t */
 	struct volume_entry_v3_t volumes[MAX_VOLUMES_PER_HOST];			/* Volumes of this host */
-};
+} ALIGNED;
 
 struct keydb_v3_t {
 	struct keydb_common_header_t common;
 	bool server_database;
 	unsigned int host_count;
 	struct host_entry_v3_t hosts[];
-};
+} ALIGNED;
 
 
 #define KEYDB_CURRENT_VERSION						3

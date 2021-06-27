@@ -298,8 +298,10 @@ static bool keydb_migrate_v2_to_v3(void **keydb_data, unsigned int *keydb_data_s
 		.host_count = old_db->host_count,
 	};
 	for (unsigned int i = 0; i < new_db->host_count; i++) {
+		/* Do not copy over host_flags or volumes */
 		memcpy(&new_db->hosts[i], &old_db->hosts[i], sizeof(old_db->hosts[i]) - sizeof(old_db->hosts[i].volumes));
 		for (unsigned int j = 0; j < new_db->hosts[i].volume_count; j++) {
+			/* Do not copy over volume_flags */
 			memcpy(&new_db->hosts[i].volumes[j], &old_db->hosts[i].volumes[j], sizeof(old_db->hosts[i].volumes[j]));
 		}
 	}
