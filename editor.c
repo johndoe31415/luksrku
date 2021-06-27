@@ -65,6 +65,7 @@ static enum cmd_returncode_t cmd_list(struct editor_context_t *ctx, const char *
 static enum cmd_returncode_t cmd_add_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_del_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_rekey_host(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
+static enum cmd_returncode_t cmd_host_param(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_add_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_del_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
 static enum cmd_returncode_t cmd_rekey_volume(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params);
@@ -119,6 +120,14 @@ static const struct editor_command_t commands[] = {
 		.description = "Re-keys the TLS PSK of a given host",
 	},
 	{
+		.cmdnames = { "host_param" },
+		.callback = cmd_host_param,
+		.param_names = "[hostname] timeout [value]",
+		.min_params = 3,
+		.max_params = 3,
+		.description = "Set a parameter of a host (currently only timeout supported)",
+	},
+	{
 		.cmdnames = { "add_volume" },
 		.callback = cmd_add_volume,
 		.param_names = "[hostname] [devmappername] [volume-UUID]",
@@ -153,7 +162,7 @@ static const struct editor_command_t commands[] = {
 	{
 		.cmdnames = { "flag_volume" },
 		.callback = cmd_flag_volume,
-		.param_names = "[hostname] [devmappername] [(+-)flagname]",
+		.param_names = "[hostname] [devmappername] [(+-)(allow_discards)]",
 		.min_params = 3,
 		.max_params = 3,
 		.description = "Edits the flags of a volume",
@@ -319,6 +328,25 @@ static enum cmd_returncode_t cmd_rekey_host(struct editor_context_t *ctx, const 
 	const char *host_name = params[0];
 	host_entry_t *host = cmd_gethost(ctx, host_name);
 	return host && keydb_rekey_host(host) ? COMMAND_SUCCESS : COMMAND_FAILURE;
+}
+
+static enum cmd_returncode_t cmd_host_param(struct editor_context_t *ctx, const char *cmdname, unsigned int param_cnt, char **params) {
+	const char *host_name = params[0];
+	const char *param = params[1];
+	const char *value = params[2];
+	host_entry_t *host = cmd_gethost(ctx, host_name);
+	if (!host) {
+		return COMMAND_FAILURE;
+	}
+
+	if (!strcasecmp(param, "timeout")) {
+		host->client_default_timeout_secs = atoi(value);
+	} else {
+		fprintf(stderr, "Invalid parameter: %s\n", param);
+		return COMMAND_FAILURE;
+	}
+
+	return COMMAND_SUCCESS;
 }
 
 static enum cmd_returncode_t cmd_do_showkey_volume(volume_entry_t *volume) {
