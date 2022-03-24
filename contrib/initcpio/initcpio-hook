@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Initcpio hook script for remote LUKS unlocking in BusyBox
+#
+# By Georg Pfuetzenreuter <mail@georg-pfuetzenreuter.net>
+
+run_hook() {
+/usr/bin/luksrku client -v /etc/luksrku-client.bin
+}
+

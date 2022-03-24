@@ -1,0 +1,20 @@
+# vim:set ft=sh
+MODULES=()
+BINARIES=()
+FILES=()
+HOOKS=(base udev autodetect modconf block filesystems net luksrku keymap keyboard fsck)
+
+# COMPRESSION
+# Use this to compress the initramfs image. By default, zstd compression
+# is used. Use 'cat' to create an uncompressed image.
+#COMPRESSION="zstd"
+#COMPRESSION="gzip"
+#COMPRESSION="bzip2"
+#COMPRESSION="lzma"
+#COMPRESSION="xz"
+#COMPRESSION="lzop"
+#COMPRESSION="lz4"
+
+# COMPRESSION_OPTIONS
+# Additional options for the compressor
+#COMPRESSION_OPTIONS=()

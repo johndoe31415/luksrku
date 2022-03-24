@@ -1,0 +1,16 @@
+# mkinitcpio preset file for the 'linux-lts' package
+
+ALL_config="/etc/mkinitcpio.d/mkinitcpio.luksrku.conf"
+ALL_kver="/boot/vmlinuz-linux-lts"
+
+PRESETS=('default' 'regular' 'fallback')
+
+#default_config="/etc/mkinitcpio.d/mkinitcpio.luksrku.conf"
+default_image="/boot/initramfs-linux-lts-luksrku.img"
+
+#regular_config="/etc/mkinitcpio.conf"
+regular_config="/etc/mkinitcpio.conf"
+
+#fallback_config="/etc/mkinitcpio.conf"
+fallback_image="/boot/initramfs-linux-lts-fallback.img"
+fallback_options="-S autodetect"

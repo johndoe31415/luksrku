@@ -1,0 +1,14 @@
+#!/bin/sh
+exec tail -n +3 $0
+menuentry 'Arch Linux Remote Unlock' --class arch --class gnu-linux --class gnu {
+        load_video
+        set gfxpayload=keep
+        insmod gzio
+        insmod part_gpt
+        insmod ext2
+        search --no-floppy --fs-uuid --set=root 76320741-ff01-4abe-81b0-64ae0b122472
+        echo    'Loading ...'
+        linux   /vmlinuz-linux-lts root=UUID=XXXX rw cryptdevice=UUID=XXXX:crypt-root root=/dev/mapper/crypt-root console=tty0 console=ttyS0,115200n8 loglevel=3 ip=xxx.xxx.xxx.xxx:::255.xxx.xxx.xxx:host.example.com:eth0:off
+        echo    'Loading initial ramdisk ...'
+        initrd  /initramfs-linux-lts-luksrku.img
+}

@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# By Georg Pfuetzenreuter <mail@georg-pfuetzenreuter.net>
+
+install() {
+	SRC="$1"
+	DST="$2"
+	cp "$SRC" "$DST"
+	chown root:root "$DST"
+	chmod 640 "$DST"
+}
+	
+install initcpio-install /etc/initcpio/install/luksrku
+install initcpio-hook /etc/initcpio/hooks/luksrku
+install mkinitcpio-preset /etc/mkinitcpio.d/linux-lts-luksrku.preset
+install mkinitcpio-conf /etc/mkinitcpio.d/mkinitcpio.luksrku.conf
