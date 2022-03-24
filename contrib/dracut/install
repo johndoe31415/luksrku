@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# By Georg Pfuetzenreuter <mail@georg-pfuetzenreuter.net>
+
+install() {
+        SRC="$1"
+        DST="$2"
+        cp "$SRC" "$DST"
+        chown root:root "$DST"
+        chmod 755 "$DST"
+}
+
+# 89 *should* not be occupied by system modules
+MODULEDIR="/usr/lib/dracut/modules.d/89luksrku/"
+
+install luksrku-script.sh "$MODULEDIR"
+install module-setup.sh "$MODULEDIR"
