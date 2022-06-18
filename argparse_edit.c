@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2021-06-27 13:24:40
+ *   Generated at: 2022-06-18 16:30:46
  */
 
 #include <stdint.h>
@@ -115,7 +115,7 @@ void argparse_edit_show_syntax(void) {
 	fprintf(stderr, "positional arguments:\n");
 	fprintf(stderr, "  filename       Database file to edit.\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "optional arguments:\n");
+	fprintf(stderr, "options:\n");
 	fprintf(stderr, "  -v, --verbose  Increase verbosity. Can be specified multiple times.\n");
 }
 

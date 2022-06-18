@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2021-06-27 13:24:40
+ *   Generated at: 2022-06-18 16:30:46
  */
 
 #include <stdint.h>
@@ -132,7 +132,7 @@ void argparse_server_show_syntax(void) {
 	fprintf(stderr, "positional arguments:\n");
 	fprintf(stderr, "  filename              Database file to load keys from.\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "optional arguments:\n");
+	fprintf(stderr, "options:\n");
 	fprintf(stderr, "  -p port, --port port  Port that is used for both UDP and TCP communication. Defaults to 23170.\n");
 	fprintf(stderr, "  -s, --silent          Do not answer UDP queries for clients trying to find a key server, only\n");
 	fprintf(stderr, "                        serve key database using TCP.\n");

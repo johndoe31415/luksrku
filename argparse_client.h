@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2021-06-27 13:24:40
+ *   Generated at: 2022-06-18 16:30:46
  */
 
 #ifndef __ARGPARSE_CLIENT_H__
@@ -23,10 +23,11 @@
 enum argparse_client_option_t {
 	ARG_CLIENT_TIMEOUT = 2,
 	ARG_CLIENT_PORT = 3,
-	ARG_CLIENT_NO_LUKS = 4,
-	ARG_CLIENT_VERBOSE = 5,
-	ARG_CLIENT_FILENAME = 6,
-	ARG_CLIENT_HOSTNAME = 7,
+	ARG_CLIENT_FORCE_UNLOCK_ALL = 4,
+	ARG_CLIENT_NO_LUKS = 5,
+	ARG_CLIENT_VERBOSE = 6,
+	ARG_CLIENT_FILENAME = 7,
+	ARG_CLIENT_HOSTNAME = 8,
 };
 
 typedef void (*argparse_client_errmsg_callback_t)(const char *errmsg, ...);

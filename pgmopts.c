@@ -101,6 +101,10 @@ static bool client_callback(enum argparse_client_option_t option, const char *va
 			pgmopts_rw.client.timeout_seconds = atoi(value);
 			break;
 
+		case ARG_CLIENT_FORCE_UNLOCK_ALL:
+			pgmopts_rw.client.force_unlock_all = true;
+			break;
+
 		case ARG_CLIENT_NO_LUKS:
 			pgmopts_rw.client.no_luks = true;
 			break;

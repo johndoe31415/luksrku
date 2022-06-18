@@ -5,7 +5,7 @@
  *
  *   Do not edit it by hand, your changes will be overwritten.
  *
- *   Generated at: 2021-06-27 13:24:40
+ *   Generated at: 2022-06-18 16:30:46
  */
 
 #include <stdint.h>
@@ -23,6 +23,7 @@ static char last_error_message[256];
 static const char *option_texts[] = {
 	[ARG_CLIENT_TIMEOUT] = "-t / --timeout",
 	[ARG_CLIENT_PORT] = "-p / --port",
+	[ARG_CLIENT_FORCE_UNLOCK_ALL] = "--force-unlock-all",
 	[ARG_CLIENT_NO_LUKS] = "--no-luks",
 	[ARG_CLIENT_VERBOSE] = "-v / --verbose",
 	[ARG_CLIENT_FILENAME] = "filename",
@@ -35,10 +36,11 @@ enum argparse_client_option_internal_t {
 	ARG_CLIENT_VERBOSE_SHORT = 'v',
 	ARG_CLIENT_TIMEOUT_LONG = 1000,
 	ARG_CLIENT_PORT_LONG = 1001,
-	ARG_CLIENT_NO_LUKS_LONG = 1002,
-	ARG_CLIENT_VERBOSE_LONG = 1003,
-	ARG_CLIENT_FILENAME_LONG = 1004,
-	ARG_CLIENT_HOSTNAME_LONG = 1005,
+	ARG_CLIENT_FORCE_UNLOCK_ALL_LONG = 1002,
+	ARG_CLIENT_NO_LUKS_LONG = 1003,
+	ARG_CLIENT_VERBOSE_LONG = 1004,
+	ARG_CLIENT_FILENAME_LONG = 1005,
+	ARG_CLIENT_HOSTNAME_LONG = 1006,
 };
 
 static void errmsg_callback(const char *errmsg, ...) {
@@ -63,6 +65,7 @@ bool argparse_client_parse(int argc, char **argv, argparse_client_callback_t arg
 	struct option long_options[] = {
 		{ "timeout",                          required_argument, 0, ARG_CLIENT_TIMEOUT_LONG },
 		{ "port",                             required_argument, 0, ARG_CLIENT_PORT_LONG },
+		{ "force-unlock-all",                 no_argument, 0, ARG_CLIENT_FORCE_UNLOCK_ALL_LONG },
 		{ "no-luks",                          no_argument, 0, ARG_CLIENT_NO_LUKS_LONG },
 		{ "verbose",                          no_argument, 0, ARG_CLIENT_VERBOSE_LONG },
 		{ "filename",                         required_argument, 0, ARG_CLIENT_FILENAME_LONG },
@@ -90,6 +93,13 @@ bool argparse_client_parse(int argc, char **argv, argparse_client_callback_t arg
 			case ARG_CLIENT_PORT_LONG:
 				last_parsed_option = ARG_CLIENT_PORT;
 				if (!argument_callback(ARG_CLIENT_PORT, optarg, errmsg_callback)) {
+					return false;
+				}
+				break;
+
+			case ARG_CLIENT_FORCE_UNLOCK_ALL_LONG:
+				last_parsed_option = ARG_CLIENT_FORCE_UNLOCK_ALL;
+				if (!argument_callback(ARG_CLIENT_FORCE_UNLOCK_ALL, optarg, errmsg_callback)) {
 					return false;
 				}
 				break;
@@ -149,7 +159,7 @@ bool argparse_client_parse(int argc, char **argv, argparse_client_callback_t arg
 }
 
 void argparse_client_show_syntax(void) {
-	fprintf(stderr, "usage: luksrku client [-t secs] [-p port] [--no-luks] [-v] filename [hostname]\n");
+	fprintf(stderr, "usage: luksrku client [-t secs] [-p port] [--force-unlock-all] [--no-luks] [-v] filename [hostname]\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Connects to a luksrku key server and unlocks local LUKS volumes.\n");
 	fprintf(stderr, "\n");
@@ -158,13 +168,15 @@ void argparse_client_show_syntax(void) {
 	fprintf(stderr, "  hostname              When hostname is given, auto-searching for suitable servers is disabled and\n");
 	fprintf(stderr, "                        only a connection to the given hostname is attempted.\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "optional arguments:\n");
+	fprintf(stderr, "options:\n");
 	fprintf(stderr, "  -t secs, --timeout secs\n");
 	fprintf(stderr, "                        When searching for a keyserver and not all volumes can be unlocked, abort\n");
 	fprintf(stderr, "                        after this period of time, given in seconds. Defaults to infinity. This\n");
 	fprintf(stderr, "                        argument can be specified as a host-based configuration parameter as well;\n");
 	fprintf(stderr, "                        the command-line argument always takes precedence.\n");
 	fprintf(stderr, "  -p port, --port port  Port that is used for both UDP and TCP communication. Defaults to 23170.\n");
+	fprintf(stderr, "  --force-unlock-all    Force attempting of unlock of all volumes, regardless if they're already\n");
+	fprintf(stderr, "                        unlocked or not. Useful for testing unlocking procedure.\n");
 	fprintf(stderr, "  --no-luks             Do not call LUKS/cryptsetup. Useful for testing unlocking procedure.\n");
 	fprintf(stderr, "  -v, --verbose         Increase verbosity. Can be specified multiple times.\n");
 }
@@ -193,6 +205,7 @@ static const char *option_enum_to_str(enum argparse_client_option_t option) {
 	switch (option) {
 		case ARG_CLIENT_TIMEOUT: return "ARG_CLIENT_TIMEOUT";
 		case ARG_CLIENT_PORT: return "ARG_CLIENT_PORT";
+		case ARG_CLIENT_FORCE_UNLOCK_ALL: return "ARG_CLIENT_FORCE_UNLOCK_ALL";
 		case ARG_CLIENT_NO_LUKS: return "ARG_CLIENT_NO_LUKS";
 		case ARG_CLIENT_VERBOSE: return "ARG_CLIENT_VERBOSE";
 		case ARG_CLIENT_FILENAME: return "ARG_CLIENT_FILENAME";

@@ -49,6 +49,7 @@ struct pgmopts_client_t {
 	const char *hostname;
 	unsigned int port;
 	unsigned int timeout_seconds;
+	bool force_unlock_all;
 	bool no_luks;
 	unsigned int verbosity;
 };

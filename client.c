@@ -342,7 +342,7 @@ bool keyclient_start(const struct pgmopts_client_t *opts) {
 		for (unsigned int i = 0; i < host->volume_count; i++) {
 			keyclient.volume_unlocked[i] = is_luks_device_opened(host->volumes[i].devmapper_name);
 		}
-		if (all_volumes_unlocked(&keyclient)) {
+		if ((!pgmopts->client.force_unlock_all) && all_volumes_unlocked(&keyclient)) {
 			log_msg(LLVL_INFO, "All %u volumes are unlocked already, not contacting luksrku key server.", host->volume_count);
 			break;
 		} else {
