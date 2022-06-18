@@ -350,17 +350,21 @@ static enum cmd_returncode_t cmd_host_param(struct editor_context_t *ctx, const 
 }
 
 static enum cmd_returncode_t cmd_do_showkey_volume(volume_entry_t *volume) {
-	char luks_passphrase[LUKS_PASSPHRASE_TEXT_SIZE_BYTES];
-	if (!keydb_get_volume_luks_passphrase(volume, luks_passphrase, sizeof(luks_passphrase))) {
-		OPENSSL_cleanse(luks_passphrase, sizeof(luks_passphrase));
-		fprintf(stderr, "Could not determine LUKS passphrase.\n");
-		return COMMAND_FAILURE;
-	}
 	char uuid[ASCII_UUID_BUFSIZE];
 	sprintf_uuid(uuid, volume->volume_uuid);
-	printf("LUKS passphrase of %s / %s: %s\n", volume->devmapper_name, uuid, luks_passphrase);
 
-	OPENSSL_cleanse(luks_passphrase, sizeof(luks_passphrase));
+	if (keydb_volume_passphrase_present(volume)) {
+		char luks_passphrase[LUKS_PASSPHRASE_TEXT_SIZE_BYTES];
+		if (!keydb_get_volume_luks_passphrase(volume, luks_passphrase, sizeof(luks_passphrase))) {
+			OPENSSL_cleanse(luks_passphrase, sizeof(luks_passphrase));
+			fprintf(stderr, "Could not determine LUKS passphrase.\n");
+			return COMMAND_FAILURE;
+		}
+		printf("LUKS passphrase of %s / %s: %s\n", volume->devmapper_name, uuid, luks_passphrase);
+		OPENSSL_cleanse(luks_passphrase, sizeof(luks_passphrase));
+	} else {
+		printf("LUKS passphrase of %s / %s: no passphrase present\n", volume->devmapper_name, uuid);
+	}
 	return COMMAND_SUCCESS;
 }
 

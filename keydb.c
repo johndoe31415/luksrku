@@ -263,6 +263,15 @@ bool keydb_rekey_volume(volume_entry_t *volume) {
 	return buffer_randomize(volume->luks_passphrase_raw, sizeof(volume->luks_passphrase_raw));
 }
 
+bool keydb_volume_passphrase_present(const volume_entry_t *volume) {
+	for (unsigned int i = 0; i < sizeof(volume->luks_passphrase_raw); i++) {
+		if (volume->luks_passphrase_raw[i]) {
+			return true;
+		}
+	}
+	return false;
+}
+
 bool keydb_get_volume_luks_passphrase(const volume_entry_t *volume, char *dest, unsigned int dest_buffer_size) {
 	return ascii_encode(dest, dest_buffer_size, volume->luks_passphrase_raw, sizeof(volume->luks_passphrase_raw));
 }

@@ -113,6 +113,7 @@ bool keydb_rekey_host(host_entry_t *host);
 volume_entry_t* keydb_add_volume(host_entry_t *host, const char *devmapper_name, const uint8_t volume_uuid[static 16]);
 bool keydb_del_volume(host_entry_t *host, const char *devmapper_name);
 bool keydb_rekey_volume(volume_entry_t *volume);
+bool keydb_volume_passphrase_present(const volume_entry_t *volume);
 bool keydb_get_volume_luks_passphrase(const volume_entry_t *volume, char *dest, unsigned int dest_buffer_size);
 bool keydb_write(const keydb_t *keydb, const char *filename, const char *passphrase);
 keydb_t* keydb_read(const char *filename);
