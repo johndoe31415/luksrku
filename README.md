@@ -200,6 +200,10 @@ Using luksrku as part of your initramfs is quite easy. You'll need a server
 somewhere in your network and an exported client database. On the client, you
 copy the client database file into `/etc/luksrku-client.bin`.
 
+Optionally, you can copy a configuration file into `/etc/luksrku.conf` and
+specify some configuration details in there which will affect how/which servers
+are queried by luksrku.
+
 Then, install luksrku globally by performing `make install` as root and install
 the initramfs script by running `install` in the initramfs/ subdirectory.
 You'll only need to install that once.

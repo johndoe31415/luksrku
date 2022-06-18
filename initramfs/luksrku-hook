@@ -2,7 +2,7 @@
 #
 # Initramfs-tools hook script for remote LUKS unlocking
 #
-# Copyright 2016-2019 Johannes Bauer <joe@johannes-bauer.com>
+# Copyright 2016-2022 Johannes Bauer <joe@johannes-bauer.com>
 # Released under GPLv3
 
 PREREQ=""
@@ -25,4 +25,7 @@ if [ ! -f /etc/luksrku-client.bin ]; then
 	exit 0
 fi
 cp /etc/luksrku-client.bin ${DESTDIR}/etc/
+if [ -f /etc/luksrku.conf ]; then
+	cp /etc/luksrku.conf ${DESTDIR}/etc/
+fi
 copy_exec /usr/local/sbin/luksrku /sbin

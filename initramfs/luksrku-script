@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2016-2019 Johannes Bauer <joe@johannes-bauer.com>
+# Copyright 2016-2022 Johannes Bauer <joe@johannes-bauer.com>
 # Released under GPLv3
 
 PREREQ="lvm2"
@@ -26,7 +26,21 @@ if [ ! -f /etc/luksrku-client.bin ]; then
 	exit 0
 fi
 
+if [ -f /etc/luksrku.conf ]; then
+	. /etc/luksrku.conf
+fi
+
+LUKSRKU_PARAMS=""
+if [ "$LUKSRKU_VERBOSE" == "1" ]; then
+	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -v"
+elif [ "$LUKSRKU_VERBOSE" == "2" ]; then
+	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -vv"
+fi
+if [ "$LUKSRKU_TIMEOUT_SECS" != "" ]; then
+	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -t ${LUKSRKU_TIMEOUT_SECS}"
+fi
+
 configure_networking
-/sbin/luksrku client -v /etc/luksrku-client.bin
+/sbin/luksrku client ${LUKSRKU_PARAMS} /etc/luksrku-client.bin ${LUKSRKU_QUERY_HOST}
 
 exit 0
