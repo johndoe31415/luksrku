@@ -31,8 +31,6 @@
 
 bool openssl_init(void) {
 	OpenSSL_add_all_algorithms();
-	ERR_load_ERR_strings();
-	ERR_load_SSL_strings();
 	return true;
 }
 
