@@ -68,7 +68,11 @@ static void vault_calibrate_derivation_time(struct vault_t *vault, double target
 		if (current_time * 10 < target_derivation_time) {
 			iteration_cnt *= 2;
 		} else if (current_time * 1.1 < target_derivation_time) {
-			iteration_cnt = iteration_cnt * target_derivation_time / current_time;
+			unsigned int new_iteration_cnt = iteration_cnt * target_derivation_time / current_time;
+			if (new_iteration_cnt == iteration_cnt) {
+				break;
+			}
+			iteration_cnt = new_iteration_cnt;
 		} else {
 			break;
 		}
