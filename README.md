@@ -200,10 +200,6 @@ Using luksrku as part of your initramfs is quite easy. You'll need a server
 somewhere in your network and an exported client database. On the client, you
 copy the client database file into `/etc/luksrku-client.bin`.
 
-Optionally, you can copy a configuration file into `/etc/luksrku.conf` and
-specify some configuration details in there which will affect how/which servers
-are queried by luksrku.
-
 Then, install luksrku globally by performing `make install` as root and install
 the initramfs script by running `install` in the initramfs/ subdirectory.
 You'll only need to install that once.
@@ -224,13 +220,22 @@ Finally, have initramfs recreate your initial ramdisk:
 # update-initramfs -u
 ```
 
-That's it, it should now work.
+During boot, you have several kernel command line options to control the
+behavior of luksrku by appending a `luksrku=opt1,opt2,opt3,...` line. Valid
+options are:
 
-## Legacy version
-luksrku has undergone an extensive rewrite of the internal code. The current
-version v0.03 is compatible only to versions >= 0.02. For earlier versions,
-servers and clients will not recognize each other, database formats and the
-creation of database works entirely different.
+  - `off`: Disable luksrku unlocking entirely (including network configuration)
+  - `timeout=n`: Give up after `n` seconds. By default, looks infinitely long.
+  - `host=xyz`: Ask only host `xyz` for credentials. By default, looks for a
+    luksrku server using UDP broadcast.
+  - `verbose=n`: Set verbosity level. Can be 1 or 2. By default, luksrku is
+    silent.
+
+Example for valid kernel commandlines are:
+
+  - `luksrku=timeout=30,host=192.168.1.9,verbose=2`
+  - `luksrku=off`
+  - `luksrku=verbose=1`
 
 ## License
 GNU GPL-3.

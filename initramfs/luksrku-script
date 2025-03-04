@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2016-2022 Johannes Bauer <joe@johannes-bauer.com>
+# Copyright 2016-2025 Johannes Bauer <joe@johannes-bauer.com>
 # Released under GPLv3
 
 PREREQ="lvm2"
@@ -26,21 +26,49 @@ if [ ! -f /etc/luksrku-client.bin ]; then
 	exit 0
 fi
 
-if [ -f /etc/luksrku.conf ]; then
-	. /etc/luksrku.conf
+LUKSRKU_ARGS=""
+for ARGUMENT in $(cat /proc/cmdline); do
+	if [ "${ARGUMENT#luksrku=}" != "${ARGUMENT}" ]; then
+		LUKSRKU_ARGS="${ARGUMENT#luksrku=}"
+	fi
+done
+
+LUKSRKU_OPT_DISABLE="0"
+LUKSRKU_OPT_TIMEOUT=""
+LUKSRKU_OPT_HOST=""
+LUKSRKU_OPT_VERBOSE="0"
+
+IFS=","
+for LUKSRKU_ARG in ${LUKSRKU_ARGS}; do
+	if [ "$LUKSRKU_ARG" = "off" ]; then
+		LUKSRKU_OPT_DISABLE="1"
+	elif [ "${LUKSRKU_ARG#timeout=}" != "${LUKSRKU_ARG}" ]; then
+		LUKSRKU_OPT_TIMEOUT="${LUKSRKU_ARG#timeout=}"
+	elif [ "${LUKSRKU_ARG#host=}" != "${LUKSRKU_ARG}" ]; then
+		LUKSRKU_OPT_HOST="${LUKSRKU_ARG#host=}"
+	elif [ "${LUKSRKU_ARG#verbose=}" != "${LUKSRKU_ARG}" ]; then
+		LUKSRKU_OPT_VERBOSE="${LUKSRKU_ARG#verbose=}"
+	else
+		echo "Ignoring unrecognized luksrku argument: ${LUKSRKU_ARG}"
+	fi
+done
+unset IFS
+
+if [ "$LUKSRKU_OPT_DISABLE" = "1" ]; then
+	exit 0
 fi
 
 LUKSRKU_PARAMS=""
-if [ "$LUKSRKU_VERBOSE" == "1" ]; then
-	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -v"
-elif [ "$LUKSRKU_VERBOSE" == "2" ]; then
-	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -vv"
+if [ "$LUKSRKU_OPT_TIMEOUT" != "" ]; then
+	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -t ${LUKSRKU_OPT_TIMEOUT}"
 fi
-if [ "$LUKSRKU_TIMEOUT_SECS" != "" ]; then
-	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -t ${LUKSRKU_TIMEOUT_SECS}"
+if [ "$LUKSRKU_OPT_VERBOSE" -ge 1 ]; then
+	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -v"
+fi
+if [ "$LUKSRKU_OPT_VERBOSE" -ge 2 ]; then
+	LUKSRKU_PARAMS="${LUKSRKU_PARAMS} -v"
 fi
 
 configure_networking
-/sbin/luksrku client ${LUKSRKU_PARAMS} /etc/luksrku-client.bin ${LUKSRKU_QUERY_HOST}
-
+/sbin/luksrku client ${LUKSRKU_PARAMS} /etc/luksrku-client.bin ${LUKSRKU_OPT_HOST}
 exit 0

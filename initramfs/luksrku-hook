@@ -25,7 +25,4 @@ if [ ! -f /etc/luksrku-client.bin ]; then
 	exit 0
 fi
 cp /etc/luksrku-client.bin ${DESTDIR}/etc/
-if [ -f /etc/luksrku.conf ]; then
-	cp /etc/luksrku.conf ${DESTDIR}/etc/
-fi
 copy_exec /usr/local/sbin/luksrku /sbin
