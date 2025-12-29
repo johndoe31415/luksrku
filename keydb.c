@@ -58,7 +58,7 @@ static unsigned int keydb_getsize(const keydb_t *keydb) {
 }
 
 keydb_t* keydb_new(void) {
-	keydb_t *keydb = calloc(sizeof(keydb_t), 1);
+	keydb_t *keydb = calloc(1, sizeof(keydb_t));
 	keydb->common.keydb_version = KEYDB_CURRENT_VERSION;
 	keydb->server_database = true;
 	return keydb;
