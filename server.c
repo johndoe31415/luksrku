@@ -199,21 +199,24 @@ static void udp_handler_thread(void *vctx) {
 			continue;
 		}
 
-		log_msg(LLVL_TRACE, "Recevied UDP query message from %d.%d.%d.%d:%d", PRINTF_FORMAT_IP(&origin), ntohs(origin.sin_port));
 
 		/* Ensure that we only reply to this host once every minute */
 		const uint32_t ipv4 = origin.sin_addr.s_addr;
 		if (is_ip_blacklisted(ipv4)) {
+			log_msg(LLVL_TRACE, "Recevied UDP query message from %d.%d.%d.%d:%d -- ignoring because currently blacklisted", PRINTF_FORMAT_IP(&origin), ntohs(origin.sin_port));
 			continue;
 		}
 		blacklist_ip(ipv4, BLACKLIST_TIMEOUT_SERVER);
 
 		/* Check if we have this host in our database */
 		if (keydb_get_host_by_uuid(client->keydb, rx_msg.host_uuid)) {
+			log_msg(LLVL_INFO, "Recevied UDP query message from %d.%d.%d.%d:%d for a known host", PRINTF_FORMAT_IP(&origin), ntohs(origin.sin_port));
 			/* Yes, it is. Notify the client who's asking that we have their key. */
 			struct udp_response_t tx_msg;
 			memcpy(tx_msg.magic, UDP_MESSAGE_MAGIC, UDP_MESSAGE_MAGIC_SIZE);
 			send_udp_message(client->udp_sd, &origin, &tx_msg, sizeof(tx_msg), true);
+		} else {
+			log_msg(LLVL_ERROR, "Recevied UDP query message from %d.%d.%d.%d:%d -- host UUID is *not* our database", PRINTF_FORMAT_IP(&origin), ntohs(origin.sin_port));
 		}
 	}
 }
